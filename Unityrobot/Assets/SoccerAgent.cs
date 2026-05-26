@@ -20,6 +20,10 @@ public class SoccerAgent : Agent
 
     public Camera robotCamera;
 
+    public BoxCollider fieldCollider;
+
+    public Transform roboTarget;
+
     // =====================================================
     // CURRICULUM
     // =====================================================
@@ -43,11 +47,15 @@ public class SoccerAgent : Agent
 
     [Header("Motors")]
 
-    public float motorForce = 6f;
-
-    public float turnForce = 400f;
-
     public float maxSpeed = 6f;
+
+    // =====================================================
+    // KICK TRAINING
+    // =====================================================
+
+    [Header("Kick Training")]
+
+    public float strongKickThreshold = 2.5f;
 
     // =====================================================
     // YOLO MOCK
@@ -66,7 +74,7 @@ public class SoccerAgent : Agent
     [Range(0f, 1f)]
     public float ballSize;
 
-     [Range(0f, 1f)]
+    [Range(0f, 1f)]
     public float goalSize;
 
     // =====================================================
@@ -119,6 +127,10 @@ public class SoccerAgent : Agent
 
     private float visibleTimer;
 
+    private Vector3 lastBallVelocity;
+
+    private int outFieldLayer;
+
     // =====================================================
     // INITIALIZE
     // =====================================================
@@ -130,6 +142,12 @@ public class SoccerAgent : Agent
             ballRb =
                 ball.GetComponent<Rigidbody>();
         }
+
+        outFieldLayer =
+            LayerMask.NameToLayer("OutZone");
+
+        lastBallVelocity =
+            Vector3.zero;
     }
 
     // =====================================================
@@ -164,6 +182,9 @@ public class SoccerAgent : Agent
 
         visibleTimer = 0f;
 
+        roboTarget.position =
+            GetRandomPointInField(fieldCollider);
+
         lastBallDistance =
             Vector3.Distance(
                 transform.position,
@@ -173,8 +194,40 @@ public class SoccerAgent : Agent
         lastGoalDistance =
             Vector3.Distance(
                 ball.position,
-                enemyGoal.position
+                roboTarget.position
             );
+
+        lastBallVelocity =
+            ballRb.velocity;
+    }
+
+    Vector3 GetRandomPointInField(
+        BoxCollider fieldCollider
+    )
+    {
+        Vector3 center =
+            fieldCollider.bounds.center;
+
+        Vector3 size =
+            fieldCollider.bounds.size;
+
+        float x =
+            Random.Range(
+                -size.x / 2f,
+                size.x / 2f
+            );
+
+        float z =
+            Random.Range(
+                -size.z / 2f,
+                size.z / 2f
+            );
+
+        return new Vector3(
+            center.x + x,
+            center.y,
+            center.z + z
+        );
     }
 
     // =====================================================
@@ -201,7 +254,6 @@ public class SoccerAgent : Agent
 
         sensor.AddObservation(goalSize);
 
-
         // GOAL
 
         sensor.AddObservation(
@@ -226,15 +278,13 @@ public class SoccerAgent : Agent
             attackAligned ? 1f : 0f
         );
 
-        // TARGET POINT
+        // BALL SPEED
 
-        Vector3 localTarget =
-            transform.InverseTransformPoint(
-                behindBallPoint
-            );
+        sensor.AddObservation(
+            ballRb.velocity.magnitude
+        );
 
-
-        // SPEED
+        // ROBOT SPEED
 
         sensor.AddObservation(
             rb.velocity.magnitude
@@ -250,95 +300,93 @@ public class SoccerAgent : Agent
     )
     {
         float leftMotor =
-    Mathf.Clamp(
-        actions.ContinuousActions[0],
-        -1f,
-        1f
-    );
+            Mathf.Clamp(
+                actions.ContinuousActions[0],
+                -1f,
+                1f
+            );
 
-float rightMotor =
-    Mathf.Clamp(
-        actions.ContinuousActions[1],
-        -1f,
-        1f
-    );
+        float rightMotor =
+            Mathf.Clamp(
+                actions.ContinuousActions[1],
+                -1f,
+                1f
+            );
 
-// =====================================
-// SETTINGS
-// =====================================
+        // =================================================
+        // DIFFERENTIAL DRIVE
+        // =================================================
 
-float currentMotorForce = 25f;
-float turnTorque = 12f;
+        float currentMotorForce = 32f;
 
-// =====================================
-// FORWARD / TURN
-// =====================================
+        float turnTorque = 11f;
 
-float forward =
-    (leftMotor + rightMotor) * 0.5f;
+        float forward =
+            (leftMotor + rightMotor) * 0.5f;
 
-float turn =
-    (rightMotor - leftMotor);
+        float turn =
+            (rightMotor - leftMotor);
 
-// =====================================
-// MOVEMENT
-// =====================================
+        // =================================================
+        // MOVEMENT
+        // =================================================
 
-rb.AddForce(
-    transform.forward *
-    forward *
-    currentMotorForce,
-    ForceMode.Force
-);
-
-// =====================================
-// ROTATION
-// =====================================
-
-rb.AddTorque(
-    Vector3.up *
-    turn *
-    turnTorque,
-    ForceMode.Force
-);
-
-// =====================================
-// MAX SPEED
-// =====================================
-
-Vector3 flatVelocity =
-    new Vector3(
-        rb.velocity.x,
-        0f,
-        rb.velocity.z
-    );
-
-if (flatVelocity.magnitude > maxSpeed)
-{
-    flatVelocity =
-        flatVelocity.normalized *
-        maxSpeed;
-
-    rb.velocity =
-        new Vector3(
-            flatVelocity.x,
-            rb.velocity.y,
-            flatVelocity.z
+        rb.AddForce(
+            transform.forward *
+            forward *
+            currentMotorForce,
+            ForceMode.Force
         );
-}
 
-// =====================================
-// ANTI FLIP
-// =====================================
+        // =================================================
+        // ROTATION
+        // =================================================
 
-Vector3 av = rb.angularVelocity;
+        rb.AddTorque(
+            Vector3.up *
+            turn *
+            turnTorque,
+            ForceMode.Force
+        );
 
-rb.angularVelocity =
-    new Vector3(
-        0f,
-        av.y,
-        0f
-    );
+        // =================================================
+        // MAX SPEED
+        // =================================================
+
+        Vector3 flatVelocity =
+            new Vector3(
+                rb.velocity.x,
+                0f,
+                rb.velocity.z
+            );
+
+        if(flatVelocity.magnitude > maxSpeed)
+        {
+            flatVelocity =
+                flatVelocity.normalized *
+                maxSpeed;
+
+            rb.velocity =
+                new Vector3(
+                    flatVelocity.x,
+                    rb.velocity.y,
+                    flatVelocity.z
+                );
+        }
+
+        // =================================================
+        // ANTI FLIP
+        // =================================================
+
+        Vector3 av =
+            rb.angularVelocity;
+
+        rb.angularVelocity =
+            new Vector3(
+                0f,
+                av.y,
+                0f
+            );
 
         // =================================================
         // FALL CHECK
@@ -346,7 +394,7 @@ rb.angularVelocity =
 
         if(transform.position.y < -1.3f)
         {
-            AddCustomReward(-1f);
+            AddCustomReward(-2f);
 
             EndEpisode();
 
@@ -355,7 +403,7 @@ rb.angularVelocity =
 
         if(ball.position.y < -1.3f)
         {
-            AddCustomReward(-0.5f);
+            AddCustomReward(-2f);
 
             EndEpisode();
 
@@ -363,10 +411,19 @@ rb.angularVelocity =
         }
 
         // =================================================
-        // STEP PENALTY
+        // EXISTENCE PAIN
         // =================================================
 
-        AddCustomReward(-0.0002f);
+        AddCustomReward(-0.0045f);
+
+        // =================================================
+        // ANTI VIBRATION
+        // =================================================
+
+        if(Mathf.Abs(leftMotor - rightMotor) > 1.7f)
+        {
+            AddCustomReward(-0.0015f);
+        }
 
         // =================================================
         // COURSE SYSTEM
@@ -399,54 +456,47 @@ rb.angularVelocity =
         // MAX STEPS
         // =================================================
 
-        if(StepCount > 2000)
+        if(StepCount > 1500)
         {
+            AddCustomReward(-1f);
+
             EndEpisode();
         }
     }
 
     // =====================================================
     // COURSE 0
-    // LOOK BALL
     // =====================================================
 
     private void CourseLookBall()
     {
         if(ballVisible)
         {
-            // SMALL REWARD
-
-            AddCustomReward(0.0003f);
-
-            // KEEP BALL CENTERED
+            AddCustomReward(0.00003f);
 
             float centered =
                 1f - Mathf.Abs(ballX - 0.5f);
 
             AddCustomReward(
-                centered * centered * 0.004f
+                centered *
+                centered *
+                0.00025f
             );
-
-
-            // STABLE VISION
 
             visibleTimer +=
                 Time.fixedDeltaTime;
 
             AddCustomReward(
-                visibleTimer * 0.0001f
+                visibleTimer *
+                0.000004f
             );
         }
         else
         {
             visibleTimer = 0f;
 
-            AddCustomReward(-0.0005f);
+            AddCustomReward(-0.0008f);
         }
-
-        // =================================================
-        // PROXIMITY TO BALL
-        // =================================================
 
         float distance =
             Vector3.Distance(
@@ -454,22 +504,14 @@ rb.angularVelocity =
                 ball.position
             );
 
-        float proximityReward =
-            Mathf.Clamp01(
-                1f / (distance + 0.5f)
-            );
+        float distanceDelta =
+            lastBallDistance - distance;
 
-        AddCustomReward(
-            proximityReward * 0.002f
-        );
-
-        // =================================================
-        // REWARD GETTING CLOSER
-        // =================================================
-
-        if(distance < lastBallDistance)
+        if(distanceDelta > 0f)
         {
-            AddCustomReward(0.001f);
+            AddCustomReward(
+                distanceDelta * 0.04f
+            );
         }
         else
         {
@@ -477,45 +519,19 @@ rb.angularVelocity =
         }
 
         lastBallDistance = distance;
-
-        // =================================================
-        // TOO FAR EXPLOIT PREVENTION
-        // =================================================
-
-        if(distance > 3f)
-        {
-            AddCustomReward(-0.005f);
-        }
-
-        // =================================================
-        // TOO FAST PENALTY
-        // =================================================
-
-        float speed =
-            rb.velocity.magnitude;
-
-        if(speed > 1.2f)
-        {
-            AddCustomReward(-0.003f);
-        }
     }
 
     // =====================================================
     // COURSE 1
-    // APPROACH BALL
     // =====================================================
 
     private void CourseApproachBall()
     {
         CourseLookBall();
 
-        // BIGGER BALL
-
         AddCustomReward(
-            ballSize * 0.004f
+            ballSize * 0.003f
         );
-
-        // TOUCH BALL
 
         float distance =
             Vector3.Distance(
@@ -523,27 +539,57 @@ rb.angularVelocity =
                 ball.position
             );
 
-        if(distance < 0.4f)
+        if(distance < 0.45f)
         {
-            AddCustomReward(0.03f);
+            AddCustomReward(0.015f);
+        }
+
+        // =================================================
+        // SPEED ONLY IF MOVING TO BALL
+        // =================================================
+
+        Vector3 dirToBall =
+            (
+                ball.position -
+                transform.position
+            ).normalized;
+
+        Vector3 flatVel =
+            new Vector3(
+                rb.velocity.x,
+                0f,
+                rb.velocity.z
+            );
+
+        if(flatVel.magnitude > 0.1f)
+        {
+            float towardBall =
+                Vector3.Dot(
+                    flatVel.normalized,
+                    dirToBall
+                );
+
+            if(towardBall > 0f)
+            {
+                AddCustomReward(
+                    towardBall *
+                    flatVel.magnitude *
+                    0.0015f
+                );
+            }
         }
     }
 
     // =====================================================
     // COURSE 2
-    // GET BEHIND BALL
     // =====================================================
 
     private void CourseBehindBall()
     {
         CourseApproachBall();
 
-        // =================================================
-        // POSITIONING
-        // =================================================
-
         AddCustomReward(
-            behindScore * 0.005f
+            behindScore * 0.0012f
         );
 
         float targetDistance =
@@ -554,31 +600,24 @@ rb.angularVelocity =
 
         float targetReward =
             Mathf.Clamp01(
-                1f / (targetDistance + 0.2f)
+                1f / (targetDistance + 0.15f)
             );
 
         AddCustomReward(
-            targetReward * 0.006f
+            targetReward * 0.0015f
         );
 
-        // =================================================
-        // PERFECT POSITION
-        // =================================================
-
-        if(behindScore > 0.8f)
+        if(
+            attackAligned &&
+            ballRb.velocity.magnitude > 1.5f
+        )
         {
             AddCustomReward(0.03f);
-        }
-
-        if(attackAligned)
-        {
-            AddCustomReward(0.05f);
         }
     }
 
     // =====================================================
     // COURSE 3
-    // PUSH BALL
     // =====================================================
 
     private void CoursePushBall()
@@ -587,9 +626,13 @@ rb.angularVelocity =
 
         Vector3 toGoal =
             (
-                enemyGoal.position -
+                roboTarget.position -
                 ball.position
             ).normalized;
+
+        // =================================================
+        // BALL MOVING TO GOAL
+        // =================================================
 
         float velocityToGoal =
             Vector3.Dot(
@@ -597,36 +640,82 @@ rb.angularVelocity =
                 toGoal
             );
 
-        AddCustomReward(
-            velocityToGoal * 0.01f
-        );
+        if(velocityToGoal > 0f)
+        {
+            AddCustomReward(
+                velocityToGoal * 0.05f
+            );
+        }
 
         // =================================================
-        // BALL GETTING CLOSER TO GOAL
+        // BALL ACCELERATION TO GOAL
+        // =================================================
+
+        Vector3 acceleration =
+            (
+                ballRb.velocity -
+                lastBallVelocity
+            ) / Time.fixedDeltaTime;
+
+        float accelToGoal =
+            Vector3.Dot(
+                acceleration,
+                toGoal
+            );
+
+        if(accelToGoal > 0f)
+        {
+            AddCustomReward(
+                accelToGoal * 0.002f
+            );
+        }
+
+        // =================================================
+        // BALL GETTING CLOSER
         // =================================================
 
         float goalDistance =
             Vector3.Distance(
                 ball.position,
-                enemyGoal.position
+                roboTarget.position
             );
 
-        if(goalDistance < lastGoalDistance)
+        float delta =
+            lastGoalDistance -
+            goalDistance;
+
+        if(delta > 0f)
         {
-            AddCustomReward(0.02f);
+            AddCustomReward(
+                delta * 0.08f
+            );
         }
         else
         {
-            AddCustomReward(-0.002f);
+            AddCustomReward(-0.01f);
+        }
+
+        // =================================================
+        // BALL STOPPED PENALTY
+        // =================================================
+
+        if(
+            goalDistance < 3f &&
+            ballRb.velocity.magnitude < 0.25f
+        )
+        {
+            AddCustomReward(-0.015f);
         }
 
         lastGoalDistance =
             goalDistance;
+
+        lastBallVelocity =
+            ballRb.velocity;
     }
 
     // =====================================================
     // COURSE 4
-    // SCORE GOAL
     // =====================================================
 
     private void CourseScoreGoal()
@@ -636,16 +725,16 @@ rb.angularVelocity =
         float goalDistance =
             Vector3.Distance(
                 ball.position,
-                enemyGoal.position
+                roboTarget.position
             );
 
         float scoreReward =
             Mathf.Clamp01(
-                1f / (goalDistance + 0.2f)
+                1f / (goalDistance + 0.15f)
             );
 
         AddCustomReward(
-            scoreReward * 0.02f
+            scoreReward * 0.04f
         );
     }
 
@@ -657,13 +746,70 @@ rb.angularVelocity =
         Collision collision
     )
     {
+        if(
+            collision.gameObject.layer ==
+            outFieldLayer
+        )
+        {
+            AddCustomReward(-2f);
+
+            EndEpisode();
+
+            return;
+        }
+
         if(collision.transform == ball)
         {
-            AddCustomReward(0.1f);
+            float impactForce =
+                collision.relativeVelocity.magnitude;
 
-            if(attackAligned)
+            Vector3 toGoal =
+                (
+                    roboTarget.position -
+                    ball.position
+                ).normalized;
+
+            float ballTowardGoal =
+                Vector3.Dot(
+                    ballRb.velocity,
+                    toGoal
+                );
+
+            // =================================================
+            // HIT REWARD ONLY IF USEFUL
+            // =================================================
+
+            if(ballTowardGoal > 0f)
             {
-                AddCustomReward(0.2f);
+                AddCustomReward(
+                    impactForce *
+                    ballTowardGoal *
+                    0.03f
+                );
+            }
+
+            // =================================================
+            // STRONG SHOT BONUS
+            // =================================================
+
+            if(
+                impactForce > strongKickThreshold &&
+                attackAligned
+            )
+            {
+                AddCustomReward(1.2f);
+            }
+
+            // =================================================
+            // MASSIVE SHOT
+            // =================================================
+
+            if(
+                impactForce > 5f &&
+                ballTowardGoal > 2f
+            )
+            {
+                AddCustomReward(2f);
             }
         }
     }
@@ -674,7 +820,18 @@ rb.angularVelocity =
 
     public void OnGoalScored()
     {
-        AddCustomReward(5f);
+        AddCustomReward(15f);
+
+        Debug.Log("GOOOOOLLLLL");
+
+        EndEpisode();
+    }
+
+    public void OnGoalSelfGoal()
+    {
+        AddCustomReward(-15f);
+
+        Debug.Log("SELF GOAL");
 
         EndEpisode();
     }
@@ -685,10 +842,6 @@ rb.angularVelocity =
 
     private void UpdateVision()
     {
-        // =================================================
-        // BALL
-        // =================================================
-
         Vector3 ballViewport =
             robotCamera.WorldToViewportPoint(
                 ball.position
@@ -715,7 +868,11 @@ rb.angularVelocity =
 
             float realBallDiameter = 0.04f;
 
-            ballSize = Mathf.Clamp01(realBallDiameter / distance);
+            ballSize =
+                Mathf.Clamp01(
+                    realBallDiameter /
+                    distance
+                );
         }
         else
         {
@@ -747,6 +904,7 @@ rb.angularVelocity =
             goalX = goalViewport.x;
 
             goalY = goalViewport.y;
+
             float gdistance =
                 Vector3.Distance(
                     transform.position,
@@ -755,7 +913,11 @@ rb.angularVelocity =
 
             float realGoalWidth = 0.838f;
 
-            goalSize = Mathf.Clamp01(realGoalWidth / gdistance);
+            goalSize =
+                Mathf.Clamp01(
+                    realGoalWidth /
+                    gdistance
+                );
         }
         else
         {
@@ -765,10 +927,6 @@ rb.angularVelocity =
 
             goalSize = 0f;
         }
-
-        // =================================================
-        // FOOTBALL POSITIONING
-        // =================================================
 
         CalculateFootballPositioning();
     }
@@ -781,23 +939,17 @@ rb.angularVelocity =
     {
         Vector3 goalDir =
             (
-                enemyGoal.position -
+                roboTarget.position -
                 ball.position
             ).normalized;
 
-        // TARGET POINT
-
         behindBallPoint =
             ball.position -
-            goalDir * 0.45f;
-
-        // =================================================
-        // BEHIND SCORE
-        // =================================================
+            goalDir * 0.42f;
 
         Vector3 ballToGoal =
             (
-                enemyGoal.position -
+                roboTarget.position -
                 ball.position
             ).normalized;
 
@@ -815,13 +967,9 @@ rb.angularVelocity =
                 )
             );
 
-        // =================================================
-        // ATTACK ALIGNMENT
-        // =================================================
-
         Vector3 toGoal =
             (
-                enemyGoal.position -
+                roboTarget.position -
                 transform.position
             ).normalized;
 
@@ -840,8 +988,8 @@ rb.angularVelocity =
             );
 
         attackAligned =
-            attackAlignment > 0.92f &&
-            behindScore > 0.75f;
+            attackAlignment > 0.90f &&
+            behindScore > 0.72f;
     }
 
     // =====================================================
@@ -899,564 +1047,4 @@ rb.angularVelocity =
         ballRb.angularVelocity =
             Vector3.zero;
     }
-
-    // =====================================================
-    // DEBUG
-    // =====================================================
-
-    private void Update()
-    {
-        // ROBOT -> TARGET
-
-        Debug.DrawLine(
-            transform.position,
-            behindBallPoint,
-            Color.cyan
-        );
-
-        // TARGET -> BALL
-
-        Debug.DrawLine(
-            behindBallPoint,
-            ball.position,
-            Color.green
-        );
-
-        // BALL -> GOAL
-
-        Debug.DrawLine(
-            ball.position,
-            enemyGoal.position,
-            Color.yellow
-        );
-
-        // ROBOT -> GOAL
-
-        Debug.DrawLine(
-            transform.position,
-            enemyGoal.position,
-            attackAligned
-                ? Color.green
-                : Color.red
-        );
-    }
-
-    // =====================================================
-    // GIZMOS
-    // =====================================================
-
-    private void OnDrawGizmos()
-    {
-        Gizmos.color = Color.cyan;
-
-        Gizmos.DrawSphere(
-            behindBallPoint,
-            0.08f
-        );
-
-        Gizmos.DrawLine(
-            behindBallPoint,
-            ball.position
-        );
-
-        Gizmos.color = Color.yellow;
-
-        Gizmos.DrawLine(
-            ball.position,
-            enemyGoal.position
-        );
-    }
-
-    // =====================================================
-    // GUI
-    // =====================================================
-
-// =====================================================
-// ON GUI
-// =====================================================
-
-private void OnGUI()
-{
-    // =================================================
-    // YOLO BALL
-    // =================================================
-
-    if(ballVisible)
-    {
-        DrawYOLOBox(
-            ballX,
-            ballY,
-
-            // WIDTH
-            Mathf.Clamp(
-                ballSize * 2.5f,
-                0.015f,
-                0.08f
-            ),
-
-            // HEIGHT
-            Mathf.Clamp(
-                ballSize * 2.5f,
-                0.015f,
-                0.08f
-            ),
-
-            "BALL " +
-            Mathf.RoundToInt(
-                ballSize * 100f
-            ) + "%",
-
-            Color.green
-        );
-    }
-
-    // =================================================
-    // YOLO GOAL
-    // =================================================
-
-    if(goalVisible)
-    {
-        DrawYOLOBox(
-            goalX,
-            goalY,
-
-            // WIDTH
-            Mathf.Clamp(
-                goalSize,
-                0.3f,
-                0.12f
-            ),
-
-            // HEIGHT
-            Mathf.Clamp(
-                goalSize / 3.0f,
-                0.1f,
-                0.4f
-            ),
-
-            "GOAL " +
-            Mathf.RoundToInt(
-                goalSize * 100f
-            ) + "%",
-
-            Color.green
-        );
-    }
-
-    // =================================================
-    // DEBUG PANEL
-    // =================================================
-
-    if(!showGUI)
-        return;
-
-    GUILayout.BeginArea(
-        new Rect(10, 10, 420, 720),
-        GUI.skin.box
-    );
-
-    GUILayout.Label(
-        "⚽ SAMUR-AI FOOTBALL"
-    );
-
-    GUILayout.Space(10);
-
-    GUILayout.Label(
-        "Episode: " + episodes
-    );
-
-    GUILayout.Label(
-        "Step: " + StepCount
-    );
-
-    GUILayout.Label(
-        "Course: " + currentCourse
-    );
-
-    GUILayout.Label(
-        "Mode: " +
-        courseNames[currentCourse]
-    );
-
-    GUILayout.Space(10);
-
-    GUILayout.Label(
-        "=== BALL ==="
-    );
-
-    GUILayout.Label(
-        "Visible: " +
-        ballVisible
-    );
-
-    GUILayout.Label(
-        "X: " +
-        ballX.ToString("F2")
-    );
-
-    GUILayout.Label(
-        "Y: " +
-        ballY.ToString("F2")
-    );
-
-    GUILayout.Label(
-        "Size: " +
-        ballSize.ToString("F2")
-    );
-
-    GUILayout.Space(10);
-
-    GUILayout.Label(
-        "=== GOAL ==="
-    );
-
-    GUILayout.Label(
-        "Visible: " +
-        goalVisible
-    );
-
-    GUILayout.Label(
-        "Goal X: " +
-        goalX.ToString("F2")
-    );
-
-    GUILayout.Label(
-        "Goal Y: " +
-        goalY.ToString("F2")
-    );
-
-    GUILayout.Label(
-        "Goal Size: " +
-        goalSize.ToString("F2")
-    );
-
-    GUILayout.Space(10);
-
-    GUILayout.Label(
-        "=== FOOTBALL ==="
-    );
-
-    GUILayout.Label(
-        "Behind Score: " +
-        behindScore.ToString("F2")
-    );
-
-    GUILayout.Label(
-        "Attack Alignment: " +
-        attackAlignment.ToString("F2")
-    );
-
-    GUILayout.Label(
-        "Attack Aligned: " +
-        attackAligned
-    );
-
-    GUILayout.Space(10);
-
-    GUILayout.Label(
-        "Reward: " +
-        totalReward.ToString("F3")
-    );
-
-    GUILayout.Space(20);
-
-    // =================================================
-    // BUTTONS
-    // =================================================
-
-    if(
-        GUILayout.Button(
-            "NEXT COURSE",
-            GUILayout.Height(40)
-        )
-    )
-    {
-        currentCourse++;
-
-        if(
-            currentCourse >=
-            courseNames.Length
-        )
-        {
-            currentCourse = 0;
-        }
-
-        EndEpisode();
-    }
-
-    if(
-        GUILayout.Button(
-            "RESET EPISODE",
-            GUILayout.Height(40)
-        )
-    )
-    {
-        EndEpisode();
-    }
-
-    GUILayout.EndArea();
-}
-
-// =====================================================
-// YOLO DEBUG GUI
-// =====================================================
-
-private void DrawYOLOBox(
-    float x,
-    float y,
-    float widthNorm,
-    float heightNorm,
-    string label,
-    Color color
-)
-{
-    // INVALID
-
-    if(widthNorm <= 0f ||
-       heightNorm <= 0f)
-    {
-        return;
-    }
-
-    // =================================================
-    // VIEWPORT -> SCREEN
-    // =================================================
-
-    float screenX =
-        x * Screen.width;
-
-    float screenY =
-        (1f - y) * Screen.height;
-
-    // =================================================
-    // YOLO IMPERFECTION
-    // =================================================
-
-    screenX +=
-        Random.Range(-0.5f, 0.5f);
-
-    screenY +=
-        Random.Range(-0.5f, 0.5f);
-
-    // =================================================
-    // BOX SIZE
-    // =================================================
-
-    float boxWidth =
-        widthNorm * Screen.width;
-
-    float boxHeight =
-        heightNorm * Screen.height;
-
-    Rect rect =
-        new Rect(
-            screenX - boxWidth * 0.5f,
-            screenY - boxHeight * 0.5f,
-            boxWidth,
-            boxHeight
-        );
-
-    // =================================================
-    // COLOR
-    // =================================================
-
-    Color oldColor =
-        GUI.color;
-
-    GUI.color = color;
-
-    // =================================================
-    // BOX LINES
-    // =================================================
-
-    // TOP
-
-    GUI.DrawTexture(
-        new Rect(
-            rect.x,
-            rect.y,
-            rect.width,
-            3f
-        ),
-        Texture2D.whiteTexture
-    );
-
-    // BOTTOM
-
-    GUI.DrawTexture(
-        new Rect(
-            rect.x,
-            rect.yMax,
-            rect.width,
-            3f
-        ),
-        Texture2D.whiteTexture
-    );
-
-    // LEFT
-
-    GUI.DrawTexture(
-        new Rect(
-            rect.x,
-            rect.y,
-            3f,
-            rect.height
-        ),
-        Texture2D.whiteTexture
-    );
-
-    // RIGHT
-
-    GUI.DrawTexture(
-        new Rect(
-            rect.xMax,
-            rect.y,
-            3f,
-            rect.height
-        ),
-        Texture2D.whiteTexture
-    );
-
-    // =================================================
-    // CORNERS
-    // =================================================
-
-    float corner = 18f;
-
-    // TOP LEFT
-
-    GUI.DrawTexture(
-        new Rect(
-            rect.x,
-            rect.y,
-            corner,
-            5f
-        ),
-        Texture2D.whiteTexture
-    );
-
-    GUI.DrawTexture(
-        new Rect(
-            rect.x,
-            rect.y,
-            5f,
-            corner
-        ),
-        Texture2D.whiteTexture
-    );
-
-    // TOP RIGHT
-
-    GUI.DrawTexture(
-        new Rect(
-            rect.xMax - corner,
-            rect.y,
-            corner,
-            5f
-        ),
-        Texture2D.whiteTexture
-    );
-
-    GUI.DrawTexture(
-        new Rect(
-            rect.xMax - 5f,
-            rect.y,
-            5f,
-            corner
-        ),
-        Texture2D.whiteTexture
-    );
-
-    // BOTTOM LEFT
-
-    GUI.DrawTexture(
-        new Rect(
-            rect.x,
-            rect.yMax - 5f,
-            corner,
-            5f
-        ),
-        Texture2D.whiteTexture
-    );
-
-    GUI.DrawTexture(
-        new Rect(
-            rect.x,
-            rect.yMax - corner,
-            5f,
-            corner
-        ),
-        Texture2D.whiteTexture
-    );
-
-    // BOTTOM RIGHT
-
-    GUI.DrawTexture(
-        new Rect(
-            rect.xMax - corner,
-            rect.yMax - 5f,
-            corner,
-            5f
-        ),
-        Texture2D.whiteTexture
-    );
-
-    GUI.DrawTexture(
-        new Rect(
-            rect.xMax - 5f,
-            rect.yMax - corner,
-            5f,
-            corner
-        ),
-        Texture2D.whiteTexture
-    );
-
-    // =================================================
-    // LABEL BG
-    // =================================================
-
-    GUI.DrawTexture(
-        new Rect(
-            rect.x,
-            rect.y - 24f,
-            160f,
-            24f
-        ),
-        Texture2D.whiteTexture
-    );
-
-    // =================================================
-    // LABEL STYLE
-    // =================================================
-
-    GUIStyle style =
-        new GUIStyle(
-            GUI.skin.label
-        );
-
-    style.normal.textColor =
-        Color.black;
-
-    style.fontStyle =
-        FontStyle.Bold;
-
-    style.fontSize = 14;
-
-    // =================================================
-    // LABEL
-    // =================================================
-
-    GUI.Label(
-        new Rect(
-            rect.x + 6f,
-            rect.y - 24f,
-            160f,
-            24f
-        ),
-        label,
-        style
-    );
-
-    GUI.color = oldColor;
-}
 }

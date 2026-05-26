@@ -1,0 +1,29 @@
+{
+    "SoccerAgent": {
+        "checkpoints": [
+            {
+                "steps": 182824,
+                "file_path": "results/soccer-physics-brain-06/SoccerAgent/SoccerAgent-182824.onnx",
+                "reward": 26.63976240158081,
+                "creation_time": 1779551909.6581252,
+                "auxillary_file_paths": [
+                    "results/soccer-physics-brain-06/SoccerAgent/SoccerAgent-182824.pt"
+                ]
+            }
+        ],
+        "final_checkpoint": {
+            "steps": 182824,
+            "file_path": "results/soccer-physics-brain-06/SoccerAgent.onnx",
+            "reward": 26.63976240158081,
+            "creation_time": 1779551909.6581252,
+            "auxillary_file_paths": [
+                "results/soccer-physics-brain-06/SoccerAgent/SoccerAgent-182824.pt"
+            ]
+        }
+    },
+    "metadata": {
+        "stats_format_version": "0.3.0",
+        "mlagents_version": "0.28.0",
+        "torch_version": "1.8.1"
+    }
+}

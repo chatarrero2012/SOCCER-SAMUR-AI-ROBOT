@@ -2,22 +2,22 @@
     "SoccerAgent": {
         "checkpoints": [
             {
-                "steps": 211508,
-                "file_path": "results/soccer-physics-brain/SoccerAgent/SoccerAgent-211508.onnx",
-                "reward": 5.057047709822655,
-                "creation_time": 1779400121.079007,
+                "steps": 33871,
+                "file_path": "results/soccer-physics-brain/SoccerAgent/SoccerAgent-33871.onnx",
+                "reward": -1.4413481826583545,
+                "creation_time": 1779540629.8269389,
                 "auxillary_file_paths": [
-                    "results/soccer-physics-brain/SoccerAgent/SoccerAgent-211508.pt"
+                    "results/soccer-physics-brain/SoccerAgent/SoccerAgent-33871.pt"
                 ]
             }
         ],
         "final_checkpoint": {
-            "steps": 211508,
+            "steps": 33871,
             "file_path": "results/soccer-physics-brain/SoccerAgent.onnx",
-            "reward": 5.057047709822655,
-            "creation_time": 1779400121.079007,
+            "reward": -1.4413481826583545,
+            "creation_time": 1779540629.8269389,
             "auxillary_file_paths": [
-                "results/soccer-physics-brain/SoccerAgent/SoccerAgent-211508.pt"
+                "results/soccer-physics-brain/SoccerAgent/SoccerAgent-33871.pt"
             ]
         }
     },
