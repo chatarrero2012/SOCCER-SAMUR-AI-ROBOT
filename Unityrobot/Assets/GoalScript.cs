@@ -15,7 +15,7 @@ public class GoalScript : MonoBehaviour
             if (isEnemy == false) {
                 agent.OnGoalScored();
             } else {
-                agent.OnGoalSelfGoal();
+                agent.OnOwnGoal();
             }
             
         }

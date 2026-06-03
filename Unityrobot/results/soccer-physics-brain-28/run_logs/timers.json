@@ -1,0 +1,82 @@
+{
+    "name": "root",
+    "metadata": {
+        "timer_format_version": "0.1.0",
+        "start_time_seconds": "1780498116",
+        "python_version": "3.8.2 (default, Dec 21 2020, 15:06:04) \n[Clang 12.0.0 (clang-1200.0.32.29)]",
+        "command_line_arguments": "/Users/admin/Documents/unity/robot/SOCCER-SAMUR-AI-ROBOT/Unityrobot/clean_env/lib/python3.8/site-packages/mlagents/trainers/learn.py config/ppo.yaml --run-id soccer-physics-brain-28",
+        "mlagents_version": "0.28.0",
+        "mlagents_envs_version": "0.28.0",
+        "communication_protocol_version": "1.5.0",
+        "pytorch_version": "1.8.1",
+        "numpy_version": "1.21.6",
+        "end_time_seconds": "1780498204"
+    },
+    "total": 87.291827383,
+    "count": 1,
+    "self": 0.021154312999996705,
+    "children": {
+        "run_training.setup": {
+            "total": 0.07480058099999987,
+            "count": 1,
+            "self": 0.07480058099999987
+        },
+        "TrainerController.start_learning": {
+            "total": 87.195872489,
+            "count": 1,
+            "self": 0.0005713429999900654,
+            "children": {
+                "TrainerController._reset_env": {
+                    "total": 14.950411807999998,
+                    "count": 1,
+                    "self": 14.950411807999998
+                },
+                "TrainerController.advance": {
+                    "total": 71.902183312,
+                    "count": 1,
+                    "self": 0.000351519000005851,
+                    "children": {
+                        "env_step": {
+                            "total": 71.901831793,
+                            "count": 1,
+                            "self": 71.694628387,
+                            "children": {
+                                "SubprocessEnvManager._take_step": {
+                                    "total": 0.20720340600000142,
+                                    "count": 1,
+                                    "self": 0.0003572290000022349,
+                                    "children": {
+                                        "TorchPolicy.evaluate": {
+                                            "total": 0.2068461769999992,
+                                            "count": 1,
+                                            "self": 0.008585610000000798,
+                                            "children": {
+                                                "TorchPolicy.sample_actions": {
+                                                    "total": 0.1982605669999984,
+                                                    "count": 1,
+                                                    "self": 0.1982605669999984
+                                                }
+                                            }
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    }
+                },
+                "TrainerController._save_models": {
+                    "total": 0.3427060260000019,
+                    "count": 1,
+                    "self": 0.0016831130000127814,
+                    "children": {
+                        "RLTrainer._checkpoint": {
+                            "total": 0.3410229129999891,
+                            "count": 1,
+                            "self": 0.3410229129999891
+                        }
+                    }
+                }
+            }
+        }
+    }
+}
