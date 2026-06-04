@@ -86,9 +86,9 @@ public class SimulatedMotorDriver : MonoBehaviour
 
     private void FixedUpdate()
     {
-        Debug.Log(
-    $"INPUTS  L={leftInput:F2} R={rightInput:F2}"
-);
+        // Debug.Log(
+    // $"INPUTS  L={leftInput:F2} R={rightInput:F2}"
+// );
         if (rb == null)
             return;
 
@@ -97,9 +97,9 @@ public class SimulatedMotorDriver : MonoBehaviour
         ApplyDriveForces();
 
         ApplyLateralGrip();
-        Debug.Log(
-    $"Velocity = {rb.velocity.magnitude:F4}"
-);
+        // Debug.Log(
+    // $"Velocity = {rb.velocity.magnitude:F4}"
+// );
     }
 
     // =====================================================
@@ -169,13 +169,13 @@ public class SimulatedMotorDriver : MonoBehaviour
                 rightWheelPoint.forward * 0.15f,
                 Color.blue);
         }
-        Debug.Log(
-    $"Current Motors L={currentLeftMotor:F2} R={currentRightMotor:F2}"
-);
+        // Debug.Log(
+    // $"Current Motors L={currentLeftMotor:F2} R={currentRightMotor:F2}"
+// );
 
-Debug.Log(
-    $"Forces L={leftForceMagnitude:F2} R={rightForceMagnitude:F2}"
-);
+// Debug.Log(
+//     $"Forces L={leftForceMagnitude:F2} R={rightForceMagnitude:F2}"
+// );
     }
 
     // =====================================================
@@ -227,7 +227,7 @@ Debug.Log(
         float left,
         float right)
     {
-        Debug.Log($"SET MOTOR INPUTS L={left} R={right}");
+        //Debug.Log($"SET MOTOR INPUTS L={left} R={right}");
         leftInput =
             Mathf.Clamp(left, -1f, 1f);
 

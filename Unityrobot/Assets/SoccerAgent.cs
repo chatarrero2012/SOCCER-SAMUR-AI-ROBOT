@@ -52,6 +52,28 @@ public class SoccerAgent : Agent
 
     private float episodeTimer;
 
+    [Header("Fall Detection")]
+
+    public Transform robotRoot;
+
+    public float fallHeight = -0.5f;
+
+    public float fallPenalty = -20f;
+
+    [Header("Spawn")]
+
+    public Rigidbody robotRb;
+
+    public Rigidbody ballRb;
+
+    public Vector3 robotSpawnCenter;
+
+    public Vector3 ballSpawnCenter;
+
+    public float robotSpawnRadius = 0.4f;
+
+    public float ballSpawnRadius = 0.4f;
+
     // =====================================================
     // EPISODE START
     // =====================================================
@@ -61,6 +83,8 @@ public class SoccerAgent : Agent
         episodeTimer = 0f;
 
         motorDriver.SetMotorInputs(0f, 0f);
+
+        SpawnEpisode();
     }
 
     // =====================================================
@@ -109,10 +133,10 @@ public override void OnActionReceived(
         ActionBuffers actions)
     {
 
-        Debug.Log(
-    $"Raw Actions: L={actions.ContinuousActions[0]:F3} " +
-    $"R={actions.ContinuousActions[1]:F3}"
-);
+        // Debug.Log(
+    // $"Raw Actions: L={actions.ContinuousActions[0]:F3} " +
+    // $"R={actions.ContinuousActions[1]:F3}"
+// );
 
         float leftMotor =
             Mathf.Clamp(
@@ -132,9 +156,7 @@ public override void OnActionReceived(
             leftMotor,
             rightMotor
         );
-        Debug.Log(
-    $"SETTING MOTORS L={leftMotor} R={rightMotor}"
-);
+        CheckFallConditions();
         RewardVision();
 
         AddReward(stepPenalty);
@@ -255,12 +277,14 @@ public override void OnActionReceived(
         AddReward(
             goalReward
         );
+        Debug.Log("GOOOLLLLLL");
 
         EndEpisode();
     }
 
     public void OnOwnGoal()
     {
+        Debug.Log("noooooo");
         AddReward(
             ownGoalPenalty
         );
@@ -307,5 +331,80 @@ public override void OnActionReceived(
 
         actions[0] = left;
         actions[1] = right;
+    }
+
+    private void CheckFallConditions()
+{
+    // Robot fell
+
+    if (robotRoot.position.y < fallHeight)
+    {
+        AddReward(fallPenalty);
+
+        Debug.Log("Robot fell off table");
+
+        EndEpisode();
+
+        return;
+    }
+
+    // Ball fell
+
+    if (ball.position.y < fallHeight)
+    {
+        Debug.Log("Ball fell off table");
+
+        EndEpisode();
+
+        return;
+    }
+}
+private void SpawnEpisode()
+{
+        // -------------------------
+        // Robot
+        // -------------------------
+
+        Vector2 robotOffset =
+        Random.insideUnitCircle *
+        robotSpawnRadius;
+
+        Vector3 robotPos =
+        robotSpawnCenter +
+        new Vector3(
+            robotOffset.x,
+            0f,
+            robotOffset.y);
+
+        robotRoot.position = robotPos;
+
+        robotRoot.rotation =
+        Quaternion.Euler(
+            0f,
+            Random.Range(0f, 360f),
+            0f);
+
+        robotRb.velocity = Vector3.zero;
+        robotRb.angularVelocity = Vector3.zero;
+
+        // -------------------------
+        // Ball
+        // -------------------------
+
+        Vector2 ballOffset =
+        Random.insideUnitCircle *
+        ballSpawnRadius;
+
+        Vector3 ballPos =
+        ballSpawnCenter +
+        new Vector3(
+            ballOffset.x,
+            0f,
+            ballOffset.y);
+
+        ball.position = ballPos;
+
+        ballRb.velocity = Vector3.zero;
+        ballRb.angularVelocity = Vector3.zero;
     }
 }
