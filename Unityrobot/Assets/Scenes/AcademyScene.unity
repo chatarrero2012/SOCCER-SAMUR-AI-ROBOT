@@ -1214,7 +1214,7 @@ MonoBehaviour:
   ball: {fileID: 980938600}
   enemyGoal: {fileID: 1262011278}
   ownGoal: {fileID: 215676873}
-  enemy: {fileID: 0}
+  enemy: {fileID: 1833035465}
   goalReward: 100
   ownGoalPenalty: -100
   ballVisibleReward: 0.0002
@@ -1231,7 +1231,7 @@ MonoBehaviour:
   ballSpawnCenter: {x: -0.99, y: 0, z: 0}
   robotSpawnRadius: 0.5
   ballSpawnRadius: 0.5
-  personality: {x: 0, y: 0, z: 0, w: 0}
+  personality: {x: 1, y: 0, z: 0, w: 0}
 --- !u!114 &1252344975
 MonoBehaviour:
   m_ObjectHideFlags: 0

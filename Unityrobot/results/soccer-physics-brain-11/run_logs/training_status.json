@@ -1,0 +1,65 @@
+{
+    "SoccerAgent": {
+        "checkpoints": [
+            {
+                "steps": 1999968,
+                "file_path": "results/soccer-physics-brain-11/SoccerAgent/SoccerAgent-1999968.onnx",
+                "reward": null,
+                "creation_time": 1780816137.497549,
+                "auxillary_file_paths": [
+                    "results/soccer-physics-brain-11/SoccerAgent/SoccerAgent-1999968.pt"
+                ]
+            },
+            {
+                "steps": 2000032,
+                "file_path": "results/soccer-physics-brain-11/SoccerAgent/SoccerAgent-2000032.onnx",
+                "reward": null,
+                "creation_time": 1780816137.5926342,
+                "auxillary_file_paths": [
+                    "results/soccer-physics-brain-11/SoccerAgent/SoccerAgent-2000032.pt"
+                ]
+            },
+            {
+                "steps": 2000032,
+                "file_path": "results/soccer-physics-brain-11/SoccerAgent/SoccerAgent-2000032.onnx",
+                "reward": null,
+                "creation_time": 1780830720.418327,
+                "auxillary_file_paths": [
+                    "results/soccer-physics-brain-11/SoccerAgent/SoccerAgent-2000032.pt"
+                ]
+            },
+            {
+                "steps": 2000032,
+                "file_path": "results/soccer-physics-brain-11/SoccerAgent/SoccerAgent-2000032.onnx",
+                "reward": null,
+                "creation_time": 1780830748.745874,
+                "auxillary_file_paths": [
+                    "results/soccer-physics-brain-11/SoccerAgent/SoccerAgent-2000032.pt"
+                ]
+            },
+            {
+                "steps": 2000032,
+                "file_path": "results/soccer-physics-brain-11/SoccerAgent/SoccerAgent-2000032.onnx",
+                "reward": null,
+                "creation_time": 1780830810.734327,
+                "auxillary_file_paths": [
+                    "results/soccer-physics-brain-11/SoccerAgent/SoccerAgent-2000032.pt"
+                ]
+            }
+        ],
+        "final_checkpoint": {
+            "steps": 2000032,
+            "file_path": "results/soccer-physics-brain-11/SoccerAgent.onnx",
+            "reward": null,
+            "creation_time": 1780830810.734327,
+            "auxillary_file_paths": [
+                "results/soccer-physics-brain-11/SoccerAgent/SoccerAgent-2000032.pt"
+            ]
+        }
+    },
+    "metadata": {
+        "stats_format_version": "0.3.0",
+        "mlagents_version": "0.28.0",
+        "torch_version": "1.8.1"
+    }
+}
