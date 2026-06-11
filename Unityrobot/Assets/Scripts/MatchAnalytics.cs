@@ -1,72 +1,104 @@
 using UnityEngine;
+using System.Collections.Generic;
 
 public static class MatchAnalytics
 {
     public static int TotalEpisodes;
     public static int TotalGoals;
     public static int TotalOwnGoals;
-    public static int BallTouches; // Episodios con al menos 1 toque exitoso
-
+    public static int BallTouches;
     public static float TotalReward;
     public static float RewardFromGoals;
     public static float RewardFromShaping;
 
-    // Métricas de Meta-Análisis
-    public static float TotalEpisodeTime;
-    public static float AverageGoalTime;
-    public static float FastestGoalTime;
-    public static float SlowestGoalTime;
-
     public static float AverageBallSpeed;
     public static float PeakBallSpeed;
-    public static float AverageDistanceBallToGoal;
-    public static float BestDistanceBallToGoal;
-    public static float BallProgressPerEpisode;
 
-    private static int goalCountForTime;
-    private static int speedSamples;
-    private static int distanceSamples;
+    private static Queue<bool> recentTouches = new Queue<bool>();
+    private static Queue<bool> recentGoals = new Queue<bool>();
+    private static Queue<float> recentSpeeds = new Queue<float>();
+    private const int WINDOW_SIZE = 50;
+
+    public enum TrainingPhase { Phase1_Fundamentos, Phase2_Tecnica, Phase3_Maestria, Phase4_Estrategia }
 
     public static void Reset()
     {
         TotalEpisodes = 0; TotalGoals = 0; TotalOwnGoals = 0; BallTouches = 0;
         TotalReward = 0f; RewardFromGoals = 0f; RewardFromShaping = 0f;
-        TotalEpisodeTime = 0f; AverageGoalTime = 0f; FastestGoalTime = float.MaxValue; SlowestGoalTime = 0f;
-        AverageBallSpeed = 0f; PeakBallSpeed = 0f; AverageDistanceBallToGoal = 0f; BestDistanceBallToGoal = float.MaxValue;
-        BallProgressPerEpisode = 0f;
-        goalCountForTime = 0; speedSamples = 0; distanceSamples = 0;
+        AverageBallSpeed = 0f; PeakBallSpeed = 0f;
+        recentTouches.Clear(); recentGoals.Clear(); recentSpeeds.Clear();
     }
 
-    public static void RecordGoalTime(float time)
+    public static void RecordEpisodeResult(bool touchedBall, bool scoredGoal, float avgSpeedInEpisode)
     {
-        goalCountForTime++;
-        TotalEpisodeTime += time;
-        AverageGoalTime = TotalEpisodeTime / goalCountForTime;
-        if (time < FastestGoalTime) FastestGoalTime = time;
-        if (time > SlowestGoalTime) SlowestGoalTime = time;
+        TotalEpisodes++;
+        if (touchedBall) BallTouches++;
+        if (scoredGoal) TotalGoals++;
+
+        if (recentTouches.Count >= WINDOW_SIZE) recentTouches.Dequeue();
+        recentTouches.Enqueue(touchedBall);
+
+        if (recentGoals.Count >= WINDOW_SIZE * 2) recentGoals.Dequeue();
+        recentGoals.Enqueue(scoredGoal);
+
+        if (recentSpeeds.Count >= WINDOW_SIZE) recentSpeeds.Dequeue();
+        recentSpeeds.Enqueue(avgSpeedInEpisode);
+        
+        AverageBallSpeed = 0f;
+        foreach (float s in recentSpeeds) AverageBallSpeed += s;
+        AverageBallSpeed /= recentSpeeds.Count;
     }
 
     public static void RecordBallSpeed(float speed)
     {
-        speedSamples++;
-        AverageBallSpeed = ((AverageBallSpeed * (speedSamples - 1)) + speed) / speedSamples;
         if (speed > PeakBallSpeed) PeakBallSpeed = speed;
     }
 
-    public static void RecordBallDistanceToGoal(float distance)
-    {
-        distanceSamples++;
-        AverageDistanceBallToGoal = ((AverageDistanceBallToGoal * (distanceSamples - 1)) + distance) / distanceSamples;
-        if (distance < BestDistanceBallToGoal) BestDistanceBallToGoal = distance;
-    }
-
-    public static void RecordBallProgress(float progress)
-    {
-        BallProgressPerEpisode += progress;
-    }
-
-    public static void RecordBallTouch() { BallTouches++; }
     public static void AddReward(float amount) { TotalReward += amount; }
     public static void AddGoalReward(float amount) { RewardFromGoals += amount; }
     public static void AddShapingReward(float amount) { RewardFromShaping += amount; }
+
+    public static TrainingPhase GetCurrentPhase()
+    {
+        if (TotalEpisodes < 20) return TrainingPhase.Phase1_Fundamentos;
+
+        float recentTouchRate = 0f;
+        foreach (bool t in recentTouches) if (t) recentTouchRate++;
+        recentTouchRate /= recentTouches.Count;
+
+        float recentGoalRate = 0f;
+        foreach (bool g in recentGoals) if (g) recentGoalRate++;
+        recentGoalRate /= recentGoals.Count;
+
+        if (recentTouchRate > 0.60f)
+        {
+            // CAMBIO CRÍTICO: Usamos PeakBallSpeed en lugar de AverageBallSpeed
+            if (PeakBallSpeed > 1.5f && recentGoalRate > 0.05f)
+            {
+                // ¿Listo para la Fase 4? (Dominio total, goles frecuentes y impactos fuertes)
+                if (TotalEpisodes > 100 && recentGoalRate > 0.15f && PeakBallSpeed > 3.0f)
+                {
+                    return TrainingPhase.Phase4_Estrategia;
+                }
+                return TrainingPhase.Phase3_Maestria;
+            }
+            return TrainingPhase.Phase2_Tecnica;
+        }
+
+        return TrainingPhase.Phase1_Fundamentos;
+    }
+
+    public static float GetRecentTouchRate() 
+    { 
+        float rate = 0f; 
+        foreach (bool t in recentTouches) if (t) rate++; 
+        return recentTouches.Count > 0 ? rate / recentTouches.Count : 0f; 
+    }
+
+    public static float GetRecentGoalRate() 
+    { 
+        float rate = 0f; 
+        foreach (bool g in recentGoals) if (g) rate++; 
+        return recentGoals.Count > 0 ? rate / recentGoals.Count : 0f; 
+    }
 }

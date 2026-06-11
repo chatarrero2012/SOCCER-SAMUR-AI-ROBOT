@@ -17,42 +17,16 @@ public class SoccerAgent : Agent
     public Transform ownGoal;
     public Transform enemy;
 
-    [Header("Curriculum Learning")]
-    public int phase1Episodes = 200;  // Solo buscar el balón
-    public int phase2Episodes = 500;  // Buscar + patear fuerte
-
-    public enum TrainingPhase
-    {
-        Phase1_BallSeeking,
-        Phase2_BallKicking,
-        Phase3_FullTraining
-    }
-
-    public TrainingPhase CurrentPhase
-    {
-        get
-        {
-            if (MatchAnalytics.TotalEpisodes < phase1Episodes)
-                return TrainingPhase.Phase1_BallSeeking;
-            else if (MatchAnalytics.TotalEpisodes < phase2Episodes)
-                return TrainingPhase.Phase2_BallKicking;
-            else
-                return TrainingPhase.Phase3_FullTraining;
-        }
-    }
-
-    [Header("Rewards - SPARSE")]
-    public float goalReward = 1000f;  // Aumentada drásticamente
+    [Header("Rewards")]
+    public float goalReward = 1000f;
     public float ownGoalPenalty = -500f;
-    public float stepPenalty = -0.001f;
+    public float stepPenalty = -0.0001f;
 
-    [Header("Phase 1 - Ball Seeking")]
+    [Header("Phase Specific Rewards")]
     public float ballProximityReward = 0.5f;
     public float ballTouchReward = 5f;
-
-    [Header("Phase 2 - Ball Kicking")]
-    public float ballSpeedReward = 2f;  // Recompensa por velocidad del balón
-    public float minBallSpeedForReward = 1.0f;  // Solo premia si el balón va rápido
+    public float ballSpeedReward = 3.0f;
+    public float minBallSpeedForReward = 0.5f;
 
     [Header("Spawn & Physics")]
     public Rigidbody robotRb;
@@ -66,26 +40,39 @@ public class SoccerAgent : Agent
     public float fallPenalty = -20f;
     public float maxEpisodeSeconds = 60f;
 
-    public Vector4 personality;
+    [Header("Personality Weights")]
+    [Tooltip("X:Ofensiva | Y:Técnica | Z:Velocidad | W:Disciplina")]
+    public Vector4 personality = new Vector4(1f, 1f, 1f, 1f);
 
+    private Vector4 _p; // Versión clampada para evitar explosiones numéricas
     private float previousDistanceToBall;
     private float episodeTimer;
-    private float episodeStartTime;
     private bool hasReachedBallThisEpisode;
-    private float previousBallSpeed;
+    private bool scoredGoalThisEpisode;
+    private float episodeAvgSpeed;
+    private int speedSamples;
+
+    private void Awake()
+    {
+        _p = new Vector4(
+            Mathf.Clamp(personality.x, 0.1f, 3.0f),
+            Mathf.Clamp(personality.y, 0.1f, 2.0f),
+            Mathf.Clamp(personality.z, 0.1f, 2.5f),
+            Mathf.Clamp(personality.w, 0.1f, 3.0f)
+        );
+    }
 
     public override void OnEpisodeBegin()
     {
-        MatchAnalytics.TotalEpisodes++;
         episodeTimer = 0f;
-        episodeStartTime = Time.time;
         hasReachedBallThisEpisode = false;
-
+        scoredGoalThisEpisode = false;
+        episodeAvgSpeed = 0f;
+        speedSamples = 0;
+        
         motorDriver.SetMotorInputs(0f, 0f);
         SpawnEpisode();
-
         previousDistanceToBall = Vector3.Distance(transform.position, ball.position);
-        previousBallSpeed = ballRb.velocity.magnitude;
     }
 
     public override void CollectObservations(VectorSensor sensor)
@@ -94,119 +81,140 @@ public class SoccerAgent : Agent
         AddDetectionObservation(sensor, enemyGoal);
         AddDetectionObservation(sensor, ownGoal);
         AddDetectionObservation(sensor, enemy);
-
+        
+        // Contexto de personalidad: el agente sabe "cómo" está siendo evaluado
+        sensor.AddObservation(_p.x);
+        sensor.AddObservation(_p.y);
+        sensor.AddObservation(_p.z);
+        sensor.AddObservation(_p.w);
+        
         sensor.AddObservation(motorDriver.currentBatteryCharge);
-        sensor.AddObservation(personality.x);
-        sensor.AddObservation(personality.y);
-        sensor.AddObservation(personality.z);
-        sensor.AddObservation(personality.w);
     }
 
     public override void OnActionReceived(ActionBuffers actions)
     {
         float leftMotor = Mathf.Clamp(actions.ContinuousActions[0], -1f, 1f);
         float rightMotor = Mathf.Clamp(actions.ContinuousActions[1], -1f, 1f);
-
         motorDriver.SetMotorInputs(leftMotor, rightMotor);
 
         CheckFallConditions();
-        ApplyCurriculumRewards();
+        ApplyDynamicRewards();
         RecordBallMetrics();
 
-        AddReward(stepPenalty);
-        MatchAnalytics.AddReward(stepPenalty);
+        // La penalización por paso se escala con la Disciplina (W)
+        float stepPen = stepPenalty * _p.w;
+        AddReward(stepPen);
+        MatchAnalytics.AddReward(stepPen);
 
         episodeTimer += Time.fixedDeltaTime;
-
+        
         if (episodeTimer >= maxEpisodeSeconds)
         {
-            EndEpisode();
+            FinishEpisode();
         }
     }
 
-    private void ApplyCurriculumRewards()
+    private void ApplyDynamicRewards()
     {
         float currentDistanceToBall = Vector3.Distance(transform.position, ball.position);
         float distToBallImprovement = previousDistanceToBall - currentDistanceToBall;
+        MatchAnalytics.TrainingPhase currentPhase = MatchAnalytics.GetCurrentPhase();
 
-        switch (CurrentPhase)
+        float techMult = _p.y;
+        float speedMult = _p.z;
+
+        if (currentPhase == MatchAnalytics.TrainingPhase.Phase1_Fundamentos)
         {
-            case TrainingPhase.Phase1_BallSeeking:
-                // Solo premia por acercarse al balón
-                if (distToBallImprovement > 0f)
-                {
-                    float reward = distToBallImprovement * ballProximityReward;
-                    AddReward(reward);
-                    MatchAnalytics.AddShapingReward(reward);
-                }
-
-                // Recompensa única por tocar el balón
-                if (currentDistanceToBall < 0.4f && !hasReachedBallThisEpisode)
-                {
-                    hasReachedBallThisEpisode = true;
-                    AddReward(ballTouchReward);
-                    MatchAnalytics.AddShapingReward(ballTouchReward);
-                    MatchAnalytics.RecordBallTouch();
-                }
-                break;
-
-            case TrainingPhase.Phase2_BallKicking:
-                // Shaping reducido para buscar el balón
-                if (distToBallImprovement > 0f)
-                {
-                    float reward = distToBallImprovement * (ballProximityReward * 0.3f);
-                    AddReward(reward);
-                    MatchAnalytics.AddShapingReward(reward);
-                }
-
-                if (currentDistanceToBall < 0.4f && !hasReachedBallThisEpisode)
-                {
-                    hasReachedBallThisEpisode = true;
-                    AddReward(ballTouchReward * 0.5f);
-                    MatchAnalytics.AddShapingReward(ballTouchReward * 0.5f);
-                    MatchAnalytics.RecordBallTouch();
-                }
-
-                // CLAVE: Recompensa por VELOCIDAD del balón
-                float ballSpeed = ballRb.velocity.magnitude;
-                if (ballSpeed > minBallSpeedForReward)
-                {
-                    float speedReward = (ballSpeed - minBallSpeedForReward) * ballSpeedReward;
-                    AddReward(speedReward);
-                    MatchAnalytics.AddShapingReward(speedReward);
-                }
-                break;
-
-            case TrainingPhase.Phase3_FullTraining:
-                // Sin shaping de proximidad, solo velocidad y goles
-                if (currentDistanceToBall < 0.4f && !hasReachedBallThisEpisode)
-                {
-                    hasReachedBallThisEpisode = true;
-                    AddReward(ballTouchReward * 0.2f);
-                    MatchAnalytics.AddShapingReward(ballTouchReward * 0.2f);
-                    MatchAnalytics.RecordBallTouch();
-                }
-
-                // Recompensa por velocidad del balón (más exigente)
-                float ballSpeedFull = ballRb.velocity.magnitude;
-                if (ballSpeedFull > minBallSpeedForReward)
-                {
-                    float speedReward = (ballSpeedFull - minBallSpeedForReward) * (ballSpeedReward * 0.5f);
-                    AddReward(speedReward);
-                    MatchAnalytics.AddShapingReward(speedReward);
-                }
-                break;
+            if (distToBallImprovement > 0f)
+            {
+                float reward = distToBallImprovement * ballProximityReward * techMult;
+                AddReward(reward);
+                MatchAnalytics.AddShapingReward(reward);
+            }
+            if (currentDistanceToBall < 0.4f && !hasReachedBallThisEpisode)
+            {
+                hasReachedBallThisEpisode = true;
+                float reward = ballTouchReward * techMult;
+                AddReward(reward);
+                MatchAnalytics.AddShapingReward(reward);
+            }
+        }
+        else if (currentPhase == MatchAnalytics.TrainingPhase.Phase2_Tecnica)
+        {
+            if (currentDistanceToBall < 0.4f && !hasReachedBallThisEpisode)
+            {
+                hasReachedBallThisEpisode = true;
+                float reward = ballTouchReward * techMult * 0.5f;
+                AddReward(reward);
+                MatchAnalytics.AddShapingReward(reward);
+            }
+            ApplyVelocityReward(speedMult);
+        }
+        else if (currentPhase == MatchAnalytics.TrainingPhase.Phase3_Maestria)
+        {
+            if (currentDistanceToBall < 0.4f && !hasReachedBallThisEpisode)
+            {
+                hasReachedBallThisEpisode = true;
+                float reward = ballTouchReward * techMult * 0.2f;
+                AddReward(reward);
+                MatchAnalytics.AddShapingReward(reward);
+            }
+            ApplyVelocityReward(speedMult);
+        }
+        else // Phase4_Estrategia
+        {
+            if (currentDistanceToBall < 0.4f && !hasReachedBallThisEpisode)
+            {
+                hasReachedBallThisEpisode = true;
+                float reward = ballTouchReward * techMult * 0.1f;
+                AddReward(reward);
+                MatchAnalytics.AddShapingReward(reward);
+            }
+            ApplyVelocityReward(speedMult);
+            ApplyDefensivePressure();
         }
 
         previousDistanceToBall = currentDistanceToBall;
     }
 
-    private void RecordBallMetrics()
+    private void ApplyVelocityReward(float speedMult)
     {
         float ballSpeed = ballRb.velocity.magnitude;
-        MatchAnalytics.RecordBallSpeed(ballSpeed);
-        MatchAnalytics.RecordBallDistanceToGoal(Vector3.Distance(ball.position, enemyGoal.position));
-        previousBallSpeed = ballSpeed;
+        if (ballSpeed > minBallSpeedForReward)
+        {
+            // FILTRO DE DIRECCIÓN: Solo recompensamos si va hacia la portería enemiga
+            Vector3 dirToGoal = (enemyGoal.position - ball.position).normalized;
+            float alignment = Vector3.Dot(ballRb.velocity.normalized, dirToGoal);
+
+            if (alignment > 0.1f) 
+            {
+                float reward = (ballSpeed - minBallSpeedForReward) * ballSpeedReward * speedMult * alignment;
+                AddReward(reward);
+                MatchAnalytics.AddShapingReward(reward);
+            }
+        }
+    }
+
+    private void ApplyDefensivePressure()
+    {
+        float distEnemyToBall = Vector3.Distance(enemy.position, ball.position);
+        float distAgentToBall = Vector3.Distance(transform.position, ball.position);
+
+        // Recompensa por llegar primero al balón cuando el enemigo está cerca
+        if (distEnemyToBall < 1.5f && distAgentToBall < distEnemyToBall)
+        {
+            float reward = 0.5f * _p.x;
+            AddReward(reward);
+            MatchAnalytics.AddShapingReward(reward);
+        }
+    }
+
+    private void RecordBallMetrics()
+    {
+        float speed = ballRb.velocity.magnitude;
+        MatchAnalytics.RecordBallSpeed(speed);
+        episodeAvgSpeed = ((episodeAvgSpeed * speedSamples) + speed) / (speedSamples + 1);
+        speedSamples++;
     }
 
     private void AddDetectionObservation(VectorSensor sensor, Transform target)
@@ -233,10 +241,10 @@ public class SoccerAgent : Agent
     {
         foreach (var d in yolo.detections)
         {
-            if (d.target == target)
-            {
-                result = d;
-                return true;
+            if (d.target == target) 
+            { 
+                result = d; 
+                return true; 
             }
         }
         result = default;
@@ -245,38 +253,34 @@ public class SoccerAgent : Agent
 
     public void OnGoalScored()
     {
-        float goalTime = Time.time - episodeStartTime;
-        MatchAnalytics.RecordGoalTime(goalTime);
-        MatchAnalytics.TotalGoals++;
-
-        float reward = goalReward * personality.x;
+        scoredGoalThisEpisode = true;
+        // La recompensa del gol se escala puramente con la Ofensiva (X)
+        float reward = goalReward * _p.x;
         AddReward(reward);
         MatchAnalytics.AddGoalReward(reward);
-
-        Debug.Log($"⚽ GOOOLLLLLL en {goalTime:F1}s - Fase: {CurrentPhase}");
-        EndEpisode();
+        Debug.Log($"⚽ GOOOLLLLLL - Fase: {MatchAnalytics.GetCurrentPhase()} | Reward: {reward:F1}");
+        FinishEpisode();
     }
 
     public void OnOwnGoal()
     {
+        scoredGoalThisEpisode = false;
         Debug.Log("❌ GOL EN PROPIA");
-        AddReward(ownGoalPenalty);
+        // La penalización se escala con la Disciplina (W)
+        AddReward(ownGoalPenalty * _p.w);
         MatchAnalytics.TotalOwnGoals++;
-        EndEpisode();
+        FinishEpisode();
     }
 
     public override void Heuristic(in ActionBuffers actionsOut)
     {
         var actions = actionsOut.ContinuousActions;
-        float left = 0f;
-        float right = 0f;
-
+        float left = 0f, right = 0f;
         if (Input.GetKey(KeyCode.W)) { left = 1f; right = 1f; }
         if (Input.GetKey(KeyCode.S)) { left = -1f; right = -1f; }
         if (Input.GetKey(KeyCode.A)) { left = -1f; right = 1f; }
         if (Input.GetKey(KeyCode.D)) { left = 1f; right = -1f; }
-
-        actions[0] = left;
+        actions[0] = left; 
         actions[1] = right;
     }
 
@@ -284,14 +288,13 @@ public class SoccerAgent : Agent
     {
         if (robotRoot.position.y < fallHeight)
         {
-            AddReward(fallPenalty);
-            EndEpisode();
+            AddReward(fallPenalty * _p.w);
+            FinishEpisode();
             return;
         }
-
         if (ball.position.y < fallHeight)
         {
-            EndEpisode();
+            FinishEpisode();
             return;
         }
     }
@@ -299,16 +302,20 @@ public class SoccerAgent : Agent
     private void SpawnEpisode()
     {
         Vector2 robotOffset = Random.insideUnitCircle * robotSpawnRadius;
-        Vector3 robotPos = robotSpawnCenter + new Vector3(robotOffset.x, 0f, robotOffset.y);
-        robotRoot.position = robotPos;
+        robotRoot.position = robotSpawnCenter + new Vector3(robotOffset.x, 0f, robotOffset.y);
         robotRoot.rotation = Quaternion.Euler(0f, Random.Range(0f, 360f), 0f);
-        robotRb.velocity = Vector3.zero;
+        robotRb.velocity = Vector3.zero; 
         robotRb.angularVelocity = Vector3.zero;
 
         Vector2 ballOffset = Random.insideUnitCircle * ballSpawnRadius;
-        Vector3 ballPos = ballSpawnCenter + new Vector3(ballOffset.x, 0f, ballOffset.y);
-        ball.position = ballPos;
-        ballRb.velocity = Vector3.zero;
+        ball.position = ballSpawnCenter + new Vector3(ballOffset.x, 0f, ballOffset.y);
+        ballRb.velocity = Vector3.zero; 
         ballRb.angularVelocity = Vector3.zero;
+    }
+
+    private void FinishEpisode()
+    {
+        MatchAnalytics.RecordEpisodeResult(hasReachedBallThisEpisode, scoredGoalThisEpisode, episodeAvgSpeed);
+        EndEpisode();
     }
 }

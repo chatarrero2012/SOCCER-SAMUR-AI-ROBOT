@@ -2,23 +2,23 @@ behaviors:
   SoccerAgent:
     trainer_type: ppo
     hyperparameters:
-      batch_size: 256          # Aumentado para gradientes más estables
-      buffer_size: 10240       # Aumentado para capturar mejor la estocasticidad del obstáculo
+      batch_size: 256          # <-- AUMENTADO (más estabilidad)
+      buffer_size: 10240       # <-- AUMENTADO (captura mejor la física)
       learning_rate: 0.0003
-      beta: 0.005              # Ligeramente subido para fomentar más exploración al principio
+      beta: 0.005              # <-- LIGERAMENTE AUMENTADO (más exploración)
       epsilon: 0.2
       lambd: 0.95
       num_epoch: 3
       learning_rate_schedule: linear
     network_settings:
-      normalize: True          # ¡CRÍTICO! Normaliza YOLO vs Distancias
-      hidden_units: 256        # Más capacidad para tácticas complejas
-      num_layers: 2            # 2 capas de 256 es un sweet spot para vectores
+      normalize: True          # <-- ¡CRÍTICO! Activa esto para que YOLO y las distancias pesen igual
+      hidden_units: 256        # <-- AUMENTADO (más capacidad de aprendizaje)
+      num_layers: 2
       vis_encode_type: simple
     reward_signals:
       extrinsic:
         gamma: 0.99
         strength: 1.0
-    max_steps: 5000000         # Dado el buffer más grande, necesitamos más pasos totales
+    max_steps: 5000000         # <-- ¡AQUÍ ESTÁ EL ARREGLO!
     time_horizon: 64
     summary_freq: 1000
