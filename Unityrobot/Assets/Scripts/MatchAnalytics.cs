@@ -10,7 +10,6 @@ public static class MatchAnalytics
     public static float TotalReward;
     public static float RewardFromGoals;
     public static float RewardFromShaping;
-
     public static float AverageBallSpeed;
     public static float PeakBallSpeed;
 
@@ -72,10 +71,8 @@ public static class MatchAnalytics
 
         if (recentTouchRate > 0.60f)
         {
-            // CAMBIO CRÍTICO: Usamos PeakBallSpeed en lugar de AverageBallSpeed
             if (PeakBallSpeed > 1.5f && recentGoalRate > 0.05f)
             {
-                // ¿Listo para la Fase 4? (Dominio total, goles frecuentes y impactos fuertes)
                 if (TotalEpisodes > 100 && recentGoalRate > 0.15f && PeakBallSpeed > 3.0f)
                 {
                     return TrainingPhase.Phase4_Estrategia;

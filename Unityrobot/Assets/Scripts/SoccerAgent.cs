@@ -2,6 +2,8 @@ using UnityEngine;
 using Unity.MLAgents;
 using Unity.MLAgents.Sensors;
 using Unity.MLAgents.Actuators;
+using System.IO;
+using System.Text;
 
 public class SoccerAgent : Agent
 {
@@ -17,42 +19,54 @@ public class SoccerAgent : Agent
     public Transform ownGoal;
     public Transform enemy;
 
-    [Header("Rewards")]
+    [Header("Rewards (Minimalist & Kick-Focused)")]
     public float goalReward = 1000f;
-    public float ownGoalPenalty = -500f;
-    public float stepPenalty = -0.0001f;
+    public float ownGoalPenalty = -50f;
+    public float stepPenalty = -0.01f;
+    public float kickRewardMultiplier = 15.0f; 
+    public float minKickSpeed = 2.5f;
+    public float minAlignmentForKick = 0.6f;
 
-    [Header("Phase Specific Rewards")]
-    public float ballProximityReward = 0.5f;
-    public float ballTouchReward = 5f;
-    public float ballSpeedReward = 3.0f;
-    public float minBallSpeedForReward = 0.5f;
+    [Header("Messi-ization (Shaping & Touch)")]
+    [Tooltip("Radio para considerar que el robot 'toca' el balón")]
+    public float touchRadius = 0.8f;          
+    [Tooltip("Recompensa gigante por encontrar el balón por primera vez")]
+    public float firstTouchReward = 5.0f;     
+    [Tooltip("Castigo por alejarse mucho del balón después de tocarlo")]
+    public float loseBallPenalty = -0.5f;     
 
     [Header("Spawn & Physics")]
     public Rigidbody robotRb;
     public Rigidbody ballRb;
     public Transform robotRoot;
     public Vector3 robotSpawnCenter;
-    public Vector3 ballSpawnCenter;
+    public Vector3 ballSpawnCenter; // Solo usamos .y para mantener el balón en el suelo
     public float robotSpawnRadius = 0.4f;
-    public float ballSpawnRadius = 0.4f;
+    // 🗑️ ballSpawnRadius ELIMINADO: Ya no es necesario, el balón spawnea relativo al robot.
+    
     public float fallHeight = -0.5f;
     public float fallPenalty = -20f;
-    public float maxEpisodeSeconds = 60f;
+    public float maxEpisodeSeconds = 20f;
 
     [Header("Personality Weights")]
     [Tooltip("X:Ofensiva | Y:Técnica | Z:Velocidad | W:Disciplina")]
     public Vector4 personality = new Vector4(1f, 1f, 1f, 1f);
 
-    private Vector4 _p; // Versión clampada para evitar explosiones numéricas
-    private float previousDistanceToBall;
+    // --- SISTEMA DE HOOKS / TELEMETRÍA EN C# ---
+    [Header("Telemetry & Hooks")]
+    public bool enableTelemetryLogging = false; 
+    private StreamWriter telemetryWriter;
+    private string logFilePath;
+
+    private Vector4 _p;
+    private float previousBallDistToEnemyGoal;
     private float episodeTimer;
     private bool hasReachedBallThisEpisode;
     private bool scoredGoalThisEpisode;
     private float episodeAvgSpeed;
     private int speedSamples;
 
-    private void Awake()
+    public override void Initialize()
     {
         _p = new Vector4(
             Mathf.Clamp(personality.x, 0.1f, 3.0f),
@@ -60,6 +74,13 @@ public class SoccerAgent : Agent
             Mathf.Clamp(personality.z, 0.1f, 2.5f),
             Mathf.Clamp(personality.w, 0.1f, 3.0f)
         );
+
+        if (enableTelemetryLogging)
+        {
+            logFilePath = Path.Combine(Application.dataPath, $"AgentTelemetry_{System.DateTime.Now:yyyyMMdd_HHmmss}.csv");
+            telemetryWriter = new StreamWriter(logFilePath);
+            telemetryWriter.WriteLine("Step,Time,Ball_X,Ball_Y,Ball_Size,Action_Left,Action_Right,Reward");
+        }
     }
 
     public override void OnEpisodeBegin()
@@ -69,42 +90,54 @@ public class SoccerAgent : Agent
         scoredGoalThisEpisode = false;
         episodeAvgSpeed = 0f;
         speedSamples = 0;
-        
+         
         motorDriver.SetMotorInputs(0f, 0f);
         SpawnEpisode();
-        previousDistanceToBall = Vector3.Distance(transform.position, ball.position);
+        
+        previousBallDistToEnemyGoal = Vector3.Distance(ball.position, enemyGoal.position);
     }
 
     public override void CollectObservations(VectorSensor sensor)
     {
+        SimulatedYoloDetector.Detection ballDetection = default;
+        bool seesBall = TryGetDetection(ball, out ballDetection);
+
         AddDetectionObservation(sensor, ball);
         AddDetectionObservation(sensor, enemyGoal);
-        AddDetectionObservation(sensor, ownGoal);
+        AddDetectionObservation(sensor, ownGoal);  
         AddDetectionObservation(sensor, enemy);
         
-        // Contexto de personalidad: el agente sabe "cómo" está siendo evaluado
         sensor.AddObservation(_p.x);
         sensor.AddObservation(_p.y);
         sensor.AddObservation(_p.z);
         sensor.AddObservation(_p.w);
-        
         sensor.AddObservation(motorDriver.currentBatteryCharge);
+
+        OnObservationCollected(seesBall, ballDetection);
+    }
+
+    private void OnObservationCollected(bool seesTarget, SimulatedYoloDetector.Detection detection)
+    {
+        if (enableTelemetryLogging && seesTarget)
+        {
+            // Hook para depuración
+        }
     }
 
     public override void OnActionReceived(ActionBuffers actions)
     {
-        float leftMotor = Mathf.Clamp(actions.ContinuousActions[0], -1f, 1f);
+        float leftMotor = Mathf.Clamp(actions.ContinuousActions[0], -1f, 1f); 
         float rightMotor = Mathf.Clamp(actions.ContinuousActions[1], -1f, 1f);
+        
+        OnActionDecided(leftMotor, rightMotor);
         motorDriver.SetMotorInputs(leftMotor, rightMotor);
 
         CheckFallConditions();
         ApplyDynamicRewards();
         RecordBallMetrics();
 
-        // La penalización por paso se escala con la Disciplina (W)
-        float stepPen = stepPenalty * _p.w;
-        AddReward(stepPen);
-        MatchAnalytics.AddReward(stepPen);
+        AddReward(stepPenalty);
+        MatchAnalytics.AddReward(stepPenalty);
 
         episodeTimer += Time.fixedDeltaTime;
         
@@ -114,103 +147,68 @@ public class SoccerAgent : Agent
         }
     }
 
+    private void OnActionDecided(float left, float right)
+    {
+        if (enableTelemetryLogging && telemetryWriter != null)
+        {
+            SimulatedYoloDetector.Detection d;
+            float ballX = TryGetDetection(ball, out d) ? d.normalizedCenter.x : -1f;
+            string logLine = $"{speedSamples},{episodeTimer:F2},{ballX:F3},{left:F3},{right:F3},{GetCumulativeReward():F3}";
+            telemetryWriter.WriteLine(logLine);
+        }
+    }
+
     private void ApplyDynamicRewards()
     {
-        float currentDistanceToBall = Vector3.Distance(transform.position, ball.position);
-        float distToBallImprovement = previousDistanceToBall - currentDistanceToBall;
-        MatchAnalytics.TrainingPhase currentPhase = MatchAnalytics.GetCurrentPhase();
-
-        float techMult = _p.y;
-        float speedMult = _p.z;
-
-        if (currentPhase == MatchAnalytics.TrainingPhase.Phase1_Fundamentos)
-        {
-            if (distToBallImprovement > 0f)
-            {
-                float reward = distToBallImprovement * ballProximityReward * techMult;
-                AddReward(reward);
-                MatchAnalytics.AddShapingReward(reward);
-            }
-            if (currentDistanceToBall < 0.4f && !hasReachedBallThisEpisode)
-            {
-                hasReachedBallThisEpisode = true;
-                float reward = ballTouchReward * techMult;
-                AddReward(reward);
-                MatchAnalytics.AddShapingReward(reward);
-            }
-        }
-        else if (currentPhase == MatchAnalytics.TrainingPhase.Phase2_Tecnica)
-        {
-            if (currentDistanceToBall < 0.4f && !hasReachedBallThisEpisode)
-            {
-                hasReachedBallThisEpisode = true;
-                float reward = ballTouchReward * techMult * 0.5f;
-                AddReward(reward);
-                MatchAnalytics.AddShapingReward(reward);
-            }
-            ApplyVelocityReward(speedMult);
-        }
-        else if (currentPhase == MatchAnalytics.TrainingPhase.Phase3_Maestria)
-        {
-            if (currentDistanceToBall < 0.4f && !hasReachedBallThisEpisode)
-            {
-                hasReachedBallThisEpisode = true;
-                float reward = ballTouchReward * techMult * 0.2f;
-                AddReward(reward);
-                MatchAnalytics.AddShapingReward(reward);
-            }
-            ApplyVelocityReward(speedMult);
-        }
-        else // Phase4_Estrategia
-        {
-            if (currentDistanceToBall < 0.4f && !hasReachedBallThisEpisode)
-            {
-                hasReachedBallThisEpisode = true;
-                float reward = ballTouchReward * techMult * 0.1f;
-                AddReward(reward);
-                MatchAnalytics.AddShapingReward(reward);
-            }
-            ApplyVelocityReward(speedMult);
-            ApplyDefensivePressure();
-        }
-
-        previousDistanceToBall = currentDistanceToBall;
-    }
-
-    private void ApplyVelocityReward(float speedMult)
-    {
         float ballSpeed = ballRb.velocity.magnitude;
-        if (ballSpeed > minBallSpeedForReward)
-        {
-            // FILTRO DE DIRECCIÓN: Solo recompensamos si va hacia la portería enemiga
-            Vector3 dirToGoal = (enemyGoal.position - ball.position).normalized;
-            float alignment = Vector3.Dot(ballRb.velocity.normalized, dirToGoal);
+        Vector3 dirToGoal = (enemyGoal.position - ball.position).normalized;
+        float alignment = ballSpeed > 0.1f ? Vector3.Dot(ballRb.velocity.normalized, dirToGoal) : 0f;
 
-            if (alignment > 0.1f) 
+        // 1. RECOMPENSA DE PATADA
+        if (ballSpeed > minKickSpeed && alignment > minAlignmentForKick)
+        {
+            float kickReward = (ballSpeed * alignment) * kickRewardMultiplier * _p.x;
+            AddReward(kickReward);
+            MatchAnalytics.AddShapingReward(kickReward);
+        }
+
+        // 2. EL PRIMER TOQUE Y ATRACCIÓN MAGNÉTICA
+        float distToBall = Vector3.Distance(robotRoot.position, ball.position);
+        if (distToBall < touchRadius)
+        {
+            if (!hasReachedBallThisEpisode)
             {
-                float reward = (ballSpeed - minBallSpeedForReward) * ballSpeedReward * speedMult * alignment;
-                AddReward(reward);
-                MatchAnalytics.AddShapingReward(reward);
+                hasReachedBallThisEpisode = true; 
+                AddReward(firstTouchReward);
+                MatchAnalytics.AddShapingReward(firstTouchReward);
+            }
+
+            if (distToBall > 2.5f) 
+            {
+                AddReward(loseBallPenalty);
             }
         }
-    }
 
-    private void ApplyDefensivePressure()
-    {
-        float distEnemyToBall = Vector3.Distance(enemy.position, ball.position);
-        float distAgentToBall = Vector3.Distance(transform.position, ball.position);
-
-        // Recompensa por llegar primero al balón cuando el enemigo está cerca
-        if (distEnemyToBall < 1.5f && distAgentToBall < distEnemyToBall)
+        // 3. BRÚJULA DE MESSI (Micro-recompensas)
+        float currentBallDistToEnemyGoal = Vector3.Distance(ball.position, enemyGoal.position);
+        float distImprovement = previousBallDistToEnemyGoal - currentBallDistToEnemyGoal;
+        
+        if (distImprovement > 0.01f) 
         {
-            float reward = 0.5f * _p.x;
-            AddReward(reward);
-            MatchAnalytics.AddShapingReward(reward);
+            float shapingReward = distImprovement * 10.0f; 
+            AddReward(shapingReward);
+            MatchAnalytics.AddShapingReward(shapingReward);
         }
+        else if (distImprovement < -0.05f)
+        {
+            AddReward(distImprovement * 5.0f); 
+        }
+        
+        previousBallDistToEnemyGoal = currentBallDistToEnemyGoal;
     }
 
     private void RecordBallMetrics()
-    {
+    {  
         float speed = ballRb.velocity.magnitude;
         MatchAnalytics.RecordBallSpeed(speed);
         episodeAvgSpeed = ((episodeAvgSpeed * speedSamples) + speed) / (speedSamples + 1);
@@ -254,11 +252,10 @@ public class SoccerAgent : Agent
     public void OnGoalScored()
     {
         scoredGoalThisEpisode = true;
-        // La recompensa del gol se escala puramente con la Ofensiva (X)
         float reward = goalReward * _p.x;
         AddReward(reward);
         MatchAnalytics.AddGoalReward(reward);
-        Debug.Log($"⚽ GOOOLLLLLL - Fase: {MatchAnalytics.GetCurrentPhase()} | Reward: {reward:F1}");
+        Debug.Log($"⚽ GOOOLLLLLL - Reward: {reward:F1}");
         FinishEpisode();
     }
 
@@ -266,8 +263,7 @@ public class SoccerAgent : Agent
     {
         scoredGoalThisEpisode = false;
         Debug.Log("❌ GOL EN PROPIA");
-        // La penalización se escala con la Disciplina (W)
-        AddReward(ownGoalPenalty * _p.w);
+        AddReward(ownGoalPenalty); 
         MatchAnalytics.TotalOwnGoals++;
         FinishEpisode();
     }
@@ -277,7 +273,7 @@ public class SoccerAgent : Agent
         var actions = actionsOut.ContinuousActions;
         float left = 0f, right = 0f;
         if (Input.GetKey(KeyCode.W)) { left = 1f; right = 1f; }
-        if (Input.GetKey(KeyCode.S)) { left = -1f; right = -1f; }
+        if (Input.GetKey(KeyCode.S)) { left = -1f; right = -1f; } 
         if (Input.GetKey(KeyCode.A)) { left = -1f; right = 1f; }
         if (Input.GetKey(KeyCode.D)) { left = 1f; right = -1f; }
         actions[0] = left; 
@@ -288,7 +284,7 @@ public class SoccerAgent : Agent
     {
         if (robotRoot.position.y < fallHeight)
         {
-            AddReward(fallPenalty * _p.w);
+            AddReward(fallPenalty);
             FinishEpisode();
             return;
         }
@@ -301,14 +297,27 @@ public class SoccerAgent : Agent
 
     private void SpawnEpisode()
     {
+        // 1. Robot Spawn
         Vector2 robotOffset = Random.insideUnitCircle * robotSpawnRadius;
         robotRoot.position = robotSpawnCenter + new Vector3(robotOffset.x, 0f, robotOffset.y);
-        robotRoot.rotation = Quaternion.Euler(0f, Random.Range(0f, 360f), 0f);
+        
+        // El robot mira hacia la portería rival con una ligera variación
+        Vector3 dirToGoal = (enemyGoal.position - robotRoot.position).normalized;
+        float angleToGoal = Mathf.Atan2(dirToGoal.x, dirToGoal.z) * Mathf.Rad2Deg;
+        robotRoot.rotation = Quaternion.Euler(0f, angleToGoal + Random.Range(-15f, 15f), 0f);
+        
         robotRb.velocity = Vector3.zero; 
         robotRb.angularVelocity = Vector3.zero;
 
-        Vector2 ballOffset = Random.insideUnitCircle * ballSpawnRadius;
-        ball.position = ballSpawnCenter + new Vector3(ballOffset.x, 0f, ballOffset.y);
+        // 2. Ball Spawn: 🪄 SIEMPRE en el cono de visión del robot (1.0 a 2.5m al frente)
+        Vector3 spawnForward = robotRoot.forward;
+        float distToSpawnBall = Random.Range(1.0f, 2.5f);
+        
+        // 🛠️ FIX CS1612: Variable temporal para evitar modificar el struct directamente
+        Vector3 newBallPos = robotRoot.position + spawnForward * distToSpawnBall;
+        newBallPos.y = ballSpawnCenter.y; // Mantenemos la altura del suelo
+        ball.position = newBallPos; 
+        
         ballRb.velocity = Vector3.zero; 
         ballRb.angularVelocity = Vector3.zero;
     }
@@ -316,6 +325,21 @@ public class SoccerAgent : Agent
     private void FinishEpisode()
     {
         MatchAnalytics.RecordEpisodeResult(hasReachedBallThisEpisode, scoredGoalThisEpisode, episodeAvgSpeed);
+        
+        if (enableTelemetryLogging && telemetryWriter != null)
+        {
+            telemetryWriter.Flush();
+        }
+        
         EndEpisode();
+    }
+
+    private void OnDestroy()
+    {
+        if (telemetryWriter != null)
+        {
+            telemetryWriter.Close();
+            telemetryWriter.Dispose();
+        }
     }
 }

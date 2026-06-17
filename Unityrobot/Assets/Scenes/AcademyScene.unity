@@ -920,7 +920,7 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: 
   agent: {fileID: 1252344974}
-  isEnemy: 0
+  isEnemy: 1
 --- !u!1 &832948560
 GameObject:
   m_ObjectHideFlags: 0
@@ -945,7 +945,7 @@ Transform:
   m_PrefabAsset: {fileID: 0}
   m_GameObject: {fileID: 832948560}
   m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
-  m_LocalPosition: {x: -2.379, y: -0.06385851, z: -0.007}
+  m_LocalPosition: {x: -0.572, y: -0.06385851, z: -0.007}
   m_LocalScale: {x: 1, y: 1, z: 1}
   m_ConstrainProportionsScale: 0
   m_Children: []
@@ -1218,21 +1218,23 @@ MonoBehaviour:
   goalReward: 100
   ownGoalPenalty: -100
   stepPenalty: -0.00005
-  ballProximityReward: 0.5
-  ballTouchReward: 5
-  ballSpeedReward: 3
-  minBallSpeedForReward: 0.5
+  kickRewardMultiplier: 15
+  minKickSpeed: 2.5
+  minAlignmentForKick: 0.6
+  touchRadius: 0.8
+  firstTouchReward: 5
+  loseBallPenalty: -0.5
   robotRb: {fileID: 1252344971}
   ballRb: {fileID: 980938597}
   robotRoot: {fileID: 1252344970}
-  robotSpawnCenter: {x: -0.52, y: 0, z: 0}
+  robotSpawnCenter: {x: -2.29, y: 0, z: 0}
   ballSpawnCenter: {x: -1.27, y: 0, z: 0}
   robotSpawnRadius: 0.5
-  ballSpawnRadius: 0.5
   fallHeight: -0.5
   fallPenalty: -20
   maxEpisodeSeconds: 60
   personality: {x: 1, y: 1, z: 1, w: 1}
+  enableTelemetryLogging: 0
 --- !u!114 &1252344975
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -1412,7 +1414,7 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: 
   agent: {fileID: 1252344974}
-  isEnemy: 1
+  isEnemy: 0
 --- !u!1 &1265824266
 GameObject:
   m_ObjectHideFlags: 0

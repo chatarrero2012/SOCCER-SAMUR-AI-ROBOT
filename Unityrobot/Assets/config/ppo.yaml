@@ -20,5 +20,5 @@ behaviors:
         gamma: 0.99
         strength: 1.0
     max_steps: 5000000         # <-- ¡AQUÍ ESTÁ EL ARREGLO!
-    time_horizon: 64
+    time_horizon: 128
     summary_freq: 1000
