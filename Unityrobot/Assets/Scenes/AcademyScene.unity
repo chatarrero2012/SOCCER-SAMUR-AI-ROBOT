@@ -484,7 +484,7 @@ PrefabInstance:
       objectReference: {fileID: 0}
     - target: {fileID: -1562203483210677258, guid: c298adef3127b412b8c1699ad0a519b4, type: 3}
       propertyPath: m_Layer
-      value: 10
+      value: 3
       objectReference: {fileID: 0}
     - target: {fileID: -645932924478070438, guid: c298adef3127b412b8c1699ad0a519b4, type: 3}
       propertyPath: m_LocalScale.y
@@ -568,7 +568,7 @@ PrefabInstance:
       objectReference: {fileID: 0}
     - target: {fileID: 6736322359796011978, guid: c298adef3127b412b8c1699ad0a519b4, type: 3}
       propertyPath: m_Layer
-      value: 10
+      value: 3
       objectReference: {fileID: 0}
     - target: {fileID: 8860855989627882930, guid: c298adef3127b412b8c1699ad0a519b4, type: 3}
       propertyPath: m_Enabled
@@ -886,7 +886,7 @@ Transform:
   m_ConstrainProportionsScale: 0
   m_Children: []
   m_Father: {fileID: 0}
-  m_RootOrder: 7
+  m_RootOrder: 6
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
 --- !u!1 &750814784 stripped
 GameObject:
@@ -921,37 +921,6 @@ MonoBehaviour:
   m_EditorClassIdentifier: 
   agent: {fileID: 1252344974}
   isEnemy: 1
---- !u!1 &832948560
-GameObject:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  serializedVersion: 6
-  m_Component:
-  - component: {fileID: 832948561}
-  m_Layer: 0
-  m_Name: NPCAreaCenter
-  m_TagString: Untagged
-  m_Icon: {fileID: 0}
-  m_NavMeshLayer: 0
-  m_StaticEditorFlags: 0
-  m_IsActive: 1
---- !u!4 &832948561
-Transform:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 832948560}
-  m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
-  m_LocalPosition: {x: -0.572, y: -0.06385851, z: -0.007}
-  m_LocalScale: {x: 1, y: 1, z: 1}
-  m_ConstrainProportionsScale: 0
-  m_Children: []
-  m_Father: {fileID: 0}
-  m_RootOrder: 4
-  m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
 --- !u!1001 &980938594
 PrefabInstance:
   m_ObjectHideFlags: 0
@@ -1192,6 +1161,12 @@ MonoBehaviour:
   drawGUI: 1
   guiColor: {r: 0, g: 1, b: 0, a: 1}
   lineThickness: 2
+  enableDomainShifts: 0
+  gaussianNoiseStdDev: 0.01
+  baseDropoutRate: 0.05
+  distanceDropoffFactor: 0.08
+  boundingBoxJitter: 0.005
+  latencyFrames: 0
   detections: []
 --- !u!114 &1252344974
 MonoBehaviour:
@@ -1221,19 +1196,22 @@ MonoBehaviour:
   kickRewardMultiplier: 15
   minKickSpeed: 2.5
   minAlignmentForKick: 0.6
-  touchRadius: 0.8
-  firstTouchReward: 5
-  loseBallPenalty: -0.5
   robotRb: {fileID: 1252344971}
   ballRb: {fileID: 980938597}
   robotRoot: {fileID: 1252344970}
-  robotSpawnCenter: {x: -2.29, y: 0, z: 0}
+  robotSpawnCenter: {x: -2.55, y: 0, z: 0}
   ballSpawnCenter: {x: -1.27, y: 0, z: 0}
-  robotSpawnRadius: 0.5
+  robotSpawnRadius: 0.27
+  ballSpawnRadius: 0.4
   fallHeight: -0.5
   fallPenalty: -20
   maxEpisodeSeconds: 60
   personality: {x: 1, y: 1, z: 1, w: 1}
+  shapingFade: 0
+  baseDistanceShapingMultiplier: 2
+  distanceShapingThreshold: 0.15
+  baseFirstTouchReward: 5
+  touchRadius: 0.8
   enableTelemetryLogging: 0
 --- !u!114 &1252344975
 MonoBehaviour:
@@ -1446,7 +1424,7 @@ Transform:
   m_ConstrainProportionsScale: 0
   m_Children: []
   m_Father: {fileID: 0}
-  m_RootOrder: 5
+  m_RootOrder: 4
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
 --- !u!114 &1265824268
 MonoBehaviour:
@@ -1463,7 +1441,7 @@ MonoBehaviour:
   drawDebugUI: 1
   soccerAgent: {fileID: 1252344974}
   obstacleBot: {fileID: 0}
-  tableCenter: {fileID: 832948561}
+  tableCenter: {fileID: 0}
   tableWidth: 1.5
   tableLength: 1.5
 --- !u!114 &1265824269
@@ -1518,6 +1496,42 @@ Transform:
   m_Father: {fileID: 1252344970}
   m_RootOrder: 3
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
+--- !u!1 &1591664757
+GameObject:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  serializedVersion: 6
+  m_Component:
+  - component: {fileID: 1591664758}
+  m_Layer: 0
+  m_Name: ConeAnchor
+  m_TagString: Untagged
+  m_Icon: {fileID: 0}
+  m_NavMeshLayer: 0
+  m_StaticEditorFlags: 0
+  m_IsActive: 1
+--- !u!4 &1591664758
+Transform:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1591664757}
+  m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
+  m_LocalPosition: {x: -0.211, y: -0.063, z: 0.505}
+  m_LocalScale: {x: 1, y: 1, z: 1}
+  m_ConstrainProportionsScale: 0
+  m_Children: []
+  m_Father: {fileID: 0}
+  m_RootOrder: 7
+  m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
+--- !u!4 &1603731554 stripped
+Transform:
+  m_CorrespondingSourceObject: {fileID: -5658133984781139290, guid: c298adef3127b412b8c1699ad0a519b4, type: 3}
+  m_PrefabInstance: {fileID: 215676863}
+  m_PrefabAsset: {fileID: 0}
 --- !u!1001 &1765707335
 PrefabInstance:
   m_ObjectHideFlags: 0
@@ -1739,16 +1753,25 @@ MonoBehaviour:
   m_EditorClassIdentifier: 
   motorDriver: {fileID: 1833035463}
   rb: {fileID: 1833035464}
-  patrolCenter: {fileID: 832948561}
-  patrolWidth: 0.78
-  patrolLength: 1.01
+  ball: {fileID: 980938600}
+  coneAnchor: {fileID: 1591664758}
+  coneDirectionTarget: {fileID: 1262011278}
+  tableCenter: {fileID: 1603731554}
+  tableWidth: 1.5
+  tableLength: 1.5
+  safetyMargin: 0.1
   arrivalDistance: 0.15
   forwardSpeed: 0.25
+  chaseSpeedMultiplier: 1.5
   turnThreshold: 30
   minWaitTime: 0.5
   maxWaitTime: 2
+  stateChangeInterval: 4
+  chaseBallChance: 0.25
+  wanderAwayChance: 0.35
   steeringNoise: 0.15
   fallHeight: -0.2
+  currentMode: 0
 --- !u!114 &1833035463
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -1803,7 +1826,7 @@ Transform:
   - {fileID: 1059205225}
   - {fileID: 1788474837}
   m_Father: {fileID: 0}
-  m_RootOrder: 6
+  m_RootOrder: 5
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
 --- !u!1 &1900403731
 GameObject:

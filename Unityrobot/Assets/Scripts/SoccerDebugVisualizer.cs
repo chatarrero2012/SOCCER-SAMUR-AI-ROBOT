@@ -4,7 +4,7 @@ using UnityEngine;
 
 /// <summary>
 /// Centralized visual debugging for robot soccer.
-/// Draws table bounds, robot spawn area, dynamic ball spawn cone, and NPC data.
+/// Draws table bounds, agent spawn cone, NPC dynamic cone, and NPC behavioral state.
 /// Safe to disable at runtime.
 /// </summary>
 public class SoccerDebugVisualizer : MonoBehaviour
@@ -54,7 +54,7 @@ public class SoccerDebugVisualizer : MonoBehaviour
     }
 
     // =====================================================
-    // SPAWNS (ACTUALIZADO: Cono dinámico para el balón)
+    // SPAWNS (Agent)
     // =====================================================
     private void DrawSpawnAreas()
     {
@@ -71,83 +71,95 @@ public class SoccerDebugVisualizer : MonoBehaviour
             soccerAgent.robotSpawnCenter + Vector3.up * 0.25f,
             Color.green);
 
-        // 2. Ball Spawn (🪄 NUEVO: Cono dinámico apuntando a la portería)
+        // 2. Ball Spawn (Cono dinámico apuntando a la portería)
         if (soccerAgent.enemyGoal != null)
         {
-            Vector3 dirToGoal = (soccerAgent.enemyGoal.position - soccerAgent.robotSpawnCenter).normalized;
-            float baseAngle = Mathf.Atan2(dirToGoal.x, dirToGoal.z) * Mathf.Rad2Deg;
+            Vector3 center = soccerAgent.robotSpawnCenter;
+            Vector3 forward = (soccerAgent.enemyGoal.position - center).normalized;
+            float baseAngle = Mathf.Atan2(forward.x, forward.z) * Mathf.Rad2Deg;
 
             Color ballSpawnColor = Color.cyan;
             float minDist = 1.0f;
             float maxDist = 2.5f;
-            float angleVariance = 15f; // Coincide con el Random.Range(-15f, 15f) del Agent
+            float angleVariance = 15f; 
 
-            // Dibujar el arco interior (1.0m) y exterior (2.5m)
-            DrawArc(soccerAgent.robotSpawnCenter, minDist, baseAngle - angleVariance, baseAngle + angleVariance, 12, ballSpawnColor);
-            DrawArc(soccerAgent.robotSpawnCenter, maxDist, baseAngle - angleVariance, baseAngle + angleVariance, 12, ballSpawnColor);
+            DrawArc(center, minDist, baseAngle - angleVariance, baseAngle + angleVariance, 12, ballSpawnColor);
+            DrawArc(center, maxDist, baseAngle - angleVariance, baseAngle + angleVariance, 12, ballSpawnColor);
 
-            // Dibujar las líneas laterales que cierran el cono
             Vector3 leftDir = Quaternion.Euler(0, baseAngle - angleVariance, 0) * Vector3.forward;
             Vector3 rightDir = Quaternion.Euler(0, baseAngle + angleVariance, 0) * Vector3.forward;
 
-            Debug.DrawLine(
-                soccerAgent.robotSpawnCenter + leftDir * minDist, 
-                soccerAgent.robotSpawnCenter + leftDir * maxDist, 
-                ballSpawnColor);
-                
-            Debug.DrawLine(
-                soccerAgent.robotSpawnCenter + rightDir * minDist, 
-                soccerAgent.robotSpawnCenter + rightDir * maxDist, 
-                ballSpawnColor);
-
-            // Línea central de referencia (hacia la portería)
-            Debug.DrawLine(
-                soccerAgent.robotSpawnCenter, 
-                soccerAgent.robotSpawnCenter + dirToGoal * maxDist, 
-                new Color(ballSpawnColor.r, ballSpawnColor.g, ballSpawnColor.b, 0.5f));
+            Debug.DrawLine(center + leftDir * minDist, center + leftDir * maxDist, ballSpawnColor);
+            Debug.DrawLine(center + rightDir * minDist, center + rightDir * maxDist, ballSpawnColor);
         }
     }
 
     // =====================================================
-    // NPC
+    // NPC (ACTUALIZADO: Cono Naranja + Estados de Color)
     // =====================================================
     private void DrawNPC()
     {
         if (obstacleBot == null) return;
 
-        // Patrol Area
-        if (obstacleBot.patrolCenter != null)
+        // 1. NPC Activity Cone (Zona de influencia del NPC en Naranja)
+        if (obstacleBot.coneAnchor != null && obstacleBot.coneDirectionTarget != null)
         {
-            DrawRectangle(
-                obstacleBot.patrolCenter.position,
-                obstacleBot.patrolWidth,
-                obstacleBot.patrolLength,
-                new Color(1f, 0.5f, 0f));
+            Vector3 center = obstacleBot.coneAnchor.position;
+            Vector3 forward = (obstacleBot.coneDirectionTarget.position - center).normalized;
+            float baseAngle = Mathf.Atan2(forward.x, forward.z) * Mathf.Rad2Deg;
+
+            Color npcConeColor = new Color(1f, 0.5f, 0f, 0.6f); // Naranja transparente
+            float minDist = 1.0f;
+            float maxDist = 2.5f;
+            float angleVariance = 15f;
+
+            DrawArc(center, minDist, baseAngle - angleVariance, baseAngle + angleVariance, 12, npcConeColor);
+            DrawArc(center, maxDist, baseAngle - angleVariance, baseAngle + angleVariance, 12, npcConeColor);
+
+            Vector3 leftDir = Quaternion.Euler(0, baseAngle - angleVariance, 0) * Vector3.forward;
+            Vector3 rightDir = Quaternion.Euler(0, baseAngle + angleVariance, 0) * Vector3.forward;
+
+            Debug.DrawLine(center + leftDir * minDist, center + leftDir * maxDist, npcConeColor);
+            Debug.DrawLine(center + rightDir * minDist, center + rightDir * maxDist, npcConeColor);
         }
 
-        // Forward
+        // 2. NPC Forward Vector
         Debug.DrawLine(
             obstacleBot.transform.position,
             obstacleBot.transform.position + obstacleBot.transform.forward * 0.25f,
             Color.blue);
 
-        // Target
+        // 3. NPC Target & Behavioral State (Código de Colores)
+        Color targetColor = Color.magenta;
+        
+        switch (obstacleBot.currentMode)
+        {
+            case DynamicObstacleBot.BehaviorMode.ConePatrol:
+                targetColor = Color.cyan;   // 🟦 Patrullando el cono
+                break;
+            case DynamicObstacleBot.BehaviorMode.WanderAway:
+                targetColor = Color.yellow; // 🟨 Vagando lejos
+                break;
+            case DynamicObstacleBot.BehaviorMode.BallChase:
+                targetColor = Color.red;    // 🟥 ¡Persiguiendo el balón!
+                break;
+        }
+
+        // Línea hacia el target
         Debug.DrawLine(
             obstacleBot.transform.position,
             obstacleBot.CurrentTarget,
-            Color.magenta);
+            targetColor);
 
-        DrawCross(
-            obstacleBot.CurrentTarget,
-            0.05f,
-            Color.red);
+        // Marcador del target (Cruz + Línea vertical para verla bien en 3D)
+        DrawCross(obstacleBot.CurrentTarget, 0.08f, targetColor);
+        Debug.DrawRay(obstacleBot.CurrentTarget, Vector3.up * 0.6f, targetColor);
 
-        // State
+        // 4. State / Waiting indicator (Línea sobre la cabeza del NPC)
         Color stateColor = obstacleBot.IsWaiting ? new Color(1f, 0.5f, 0f) : Color.green;
-        
         Debug.DrawLine(
             obstacleBot.transform.position + Vector3.up * 0.05f,
-            obstacleBot.transform.position + Vector3.up * 0.25f,
+            obstacleBot.transform.position + Vector3.up * 0.3f,
             stateColor);
     }
 
@@ -155,7 +167,7 @@ public class SoccerDebugVisualizer : MonoBehaviour
     // HELPERS
     // =====================================================
     
-    // 🪄 NUEVO HELPER: Dibuja un arco en el plano XZ
+    // Dibuja un arco en el plano XZ
     private void DrawArc(Vector3 center, float radius, float startAngle, float endAngle, int segments, Color color)
     {
         float step = (endAngle - startAngle) / segments;

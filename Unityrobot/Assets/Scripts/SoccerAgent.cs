@@ -27,23 +27,14 @@ public class SoccerAgent : Agent
     public float minKickSpeed = 2.5f;
     public float minAlignmentForKick = 0.6f;
 
-    [Header("Messi-ization (Shaping & Touch)")]
-    [Tooltip("Radio para considerar que el robot 'toca' el balón")]
-    public float touchRadius = 0.8f;          
-    [Tooltip("Recompensa gigante por encontrar el balón por primera vez")]
-    public float firstTouchReward = 5.0f;     
-    [Tooltip("Castigo por alejarse mucho del balón después de tocarlo")]
-    public float loseBallPenalty = -0.5f;     
-
     [Header("Spawn & Physics")]
     public Rigidbody robotRb;
     public Rigidbody ballRb;
     public Transform robotRoot;
     public Vector3 robotSpawnCenter;
-    public Vector3 ballSpawnCenter; // Solo usamos .y para mantener el balón en el suelo
+    public Vector3 ballSpawnCenter;
     public float robotSpawnRadius = 0.4f;
-    // 🗑️ ballSpawnRadius ELIMINADO: Ya no es necesario, el balón spawnea relativo al robot.
-    
+    public float ballSpawnRadius = 0.4f;
     public float fallHeight = -0.5f;
     public float fallPenalty = -20f;
     public float maxEpisodeSeconds = 20f;
@@ -52,9 +43,28 @@ public class SoccerAgent : Agent
     [Tooltip("X:Ofensiva | Y:Técnica | Z:Velocidad | W:Disciplina")]
     public Vector4 personality = new Vector4(1f, 1f, 1f, 1f);
 
+    // =====================================================
+    // 🎓 SHAPING ANNEALING (Quitar las rueditas gradualmente)
+    // =====================================================
+    [Header("Shaping Annealing (Curriculum de Desvanecimiento)")]
+    [Tooltip("0.0 = Shaping completo, 1.0 = Solo gol (sparse rewards)")]
+    [Range(0f, 1f)] public float shapingFade = 0.0f;
+    
+    [Tooltip("Multiplicador base para el shaping de distancia (se reduce con shapingFade)")]
+    public float baseDistanceShapingMultiplier = 2.0f;
+    
+    [Tooltip("Umbral mínimo de mejora de distancia para dar recompensa")]
+    public float distanceShapingThreshold = 0.15f;
+    
+    [Tooltip("Recompensa por primer toque (se reduce con shapingFade)")]
+    public float baseFirstTouchReward = 5.0f;
+    
+    [Tooltip("Radio para considerar que el robot 'toca' el balón")]
+    public float touchRadius = 0.8f;
+
     // --- SISTEMA DE HOOKS / TELEMETRÍA EN C# ---
     [Header("Telemetry & Hooks")]
-    public bool enableTelemetryLogging = false; 
+    public bool enableTelemetryLogging = false;
     private StreamWriter telemetryWriter;
     private string logFilePath;
 
@@ -66,7 +76,16 @@ public class SoccerAgent : Agent
     private float episodeAvgSpeed;
     private int speedSamples;
 
-    public override void Initialize()
+    // =====================================================
+    // CÁLCULO DE MULTIPLICADORES SEGÚN SHAPING FADE
+    // =====================================================
+    private float CurrentDistanceShapingMultiplier => 
+        baseDistanceShapingMultiplier * (1f - shapingFade);
+    
+    private float CurrentFirstTouchReward => 
+        baseFirstTouchReward * (1f - shapingFade);
+
+    private void Awake()
     {
         _p = new Vector4(
             Mathf.Clamp(personality.x, 0.1f, 3.0f),
@@ -158,13 +177,16 @@ public class SoccerAgent : Agent
         }
     }
 
+    // =====================================================
+    // 🎓 RECOMPENSAS CON SHAPING ANNEALING
+    // =====================================================
     private void ApplyDynamicRewards()
     {
         float ballSpeed = ballRb.velocity.magnitude;
         Vector3 dirToGoal = (enemyGoal.position - ball.position).normalized;
         float alignment = ballSpeed > 0.1f ? Vector3.Dot(ballRb.velocity.normalized, dirToGoal) : 0f;
 
-        // 1. RECOMPENSA DE PATADA
+        // 1. KICK REWARD (Se mantiene, pero se puede reducir si quieres)
         if (ballSpeed > minKickSpeed && alignment > minAlignmentForKick)
         {
             float kickReward = (ballSpeed * alignment) * kickRewardMultiplier * _p.x;
@@ -172,36 +194,29 @@ public class SoccerAgent : Agent
             MatchAnalytics.AddShapingReward(kickReward);
         }
 
-        // 2. EL PRIMER TOQUE Y ATRACCIÓN MAGNÉTICA
+        // 2. FIRST TOUCH REWARD (Se desvanece con shapingFade)
         float distToBall = Vector3.Distance(robotRoot.position, ball.position);
-        if (distToBall < touchRadius)
+        if (distToBall < touchRadius && !hasReachedBallThisEpisode)
         {
-            if (!hasReachedBallThisEpisode)
+            hasReachedBallThisEpisode = true;
+            float firstTouchReward = CurrentFirstTouchReward;
+            if (firstTouchReward > 0.01f) // Solo dar si es significativo
             {
-                hasReachedBallThisEpisode = true; 
                 AddReward(firstTouchReward);
                 MatchAnalytics.AddShapingReward(firstTouchReward);
             }
-
-            if (distToBall > 2.5f) 
-            {
-                AddReward(loseBallPenalty);
-            }
         }
 
-        // 3. BRÚJULA DE MESSI (Micro-recompensas)
+        // 3. DISTANCE SHAPING (Se desvanece con shapingFade)
         float currentBallDistToEnemyGoal = Vector3.Distance(ball.position, enemyGoal.position);
         float distImprovement = previousBallDistToEnemyGoal - currentBallDistToEnemyGoal;
         
-        if (distImprovement > 0.01f) 
+        float distanceMultiplier = CurrentDistanceShapingMultiplier;
+        if (distImprovement > distanceShapingThreshold && distanceMultiplier > 0.01f)
         {
-            float shapingReward = distImprovement * 10.0f; 
+            float shapingReward = distImprovement * distanceMultiplier;
             AddReward(shapingReward);
             MatchAnalytics.AddShapingReward(shapingReward);
-        }
-        else if (distImprovement < -0.05f)
-        {
-            AddReward(distImprovement * 5.0f); 
         }
         
         previousBallDistToEnemyGoal = currentBallDistToEnemyGoal;
@@ -297,27 +312,14 @@ public class SoccerAgent : Agent
 
     private void SpawnEpisode()
     {
-        // 1. Robot Spawn
         Vector2 robotOffset = Random.insideUnitCircle * robotSpawnRadius;
         robotRoot.position = robotSpawnCenter + new Vector3(robotOffset.x, 0f, robotOffset.y);
-        
-        // El robot mira hacia la portería rival con una ligera variación
-        Vector3 dirToGoal = (enemyGoal.position - robotRoot.position).normalized;
-        float angleToGoal = Mathf.Atan2(dirToGoal.x, dirToGoal.z) * Mathf.Rad2Deg;
-        robotRoot.rotation = Quaternion.Euler(0f, angleToGoal + Random.Range(-15f, 15f), 0f);
-        
+        robotRoot.rotation = Quaternion.Euler(0f, Random.Range(0f, 360f), 0f);
         robotRb.velocity = Vector3.zero; 
         robotRb.angularVelocity = Vector3.zero;
 
-        // 2. Ball Spawn: 🪄 SIEMPRE en el cono de visión del robot (1.0 a 2.5m al frente)
-        Vector3 spawnForward = robotRoot.forward;
-        float distToSpawnBall = Random.Range(1.0f, 2.5f);
-        
-        // 🛠️ FIX CS1612: Variable temporal para evitar modificar el struct directamente
-        Vector3 newBallPos = robotRoot.position + spawnForward * distToSpawnBall;
-        newBallPos.y = ballSpawnCenter.y; // Mantenemos la altura del suelo
-        ball.position = newBallPos; 
-        
+        Vector2 ballOffset = Random.insideUnitCircle * ballSpawnRadius;
+        ball.position = ballSpawnCenter + new Vector3(ballOffset.x, 0f, ballOffset.y);
         ballRb.velocity = Vector3.zero; 
         ballRb.angularVelocity = Vector3.zero;
     }
