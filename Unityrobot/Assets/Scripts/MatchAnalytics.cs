@@ -2,8 +2,8 @@ using UnityEngine;
 using System.Collections.Generic;
 
 /// <summary>
-/// METRIC ENGINE - MATCH ANALYTICS (Completo V3.1)
-/// Sistema robusto para el cálculo de ventanas móviles sin errores cruzados.
+/// METRIC ENGINE - MATCH ANALYTICS (Edición Definitiva V4)
+/// Cálculos estables en ventana móvil de 50 episodios para monitorear el progreso exacto.
 /// </summary>
 public static class MatchAnalytics
 {

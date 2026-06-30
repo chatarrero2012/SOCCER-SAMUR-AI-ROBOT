@@ -189,35 +189,30 @@ public class SimulatedMotorDriver : MonoBehaviour
         ApplyWheelGrip(rightWheelPoint);
     }
 
-    private void ApplyWheelGrip(
-        Transform wheel)
+private void ApplyWheelGrip(Transform wheel)
+{
+    Vector3 velocityAtWheel = rb.GetPointVelocity(wheel.position);
+
+    // Corregido: Proyectamos sobre el eje derecho (lateral) de la rueda
+    Vector3 lateralVelocity = Vector3.Project(velocityAtWheel, wheel.right);
+
+    // La fuerza de corrección ahora sí frena el deslizamiento lateral (derrape)
+    Vector3 correctionForce = -lateralVelocity * lateralGrip;
+
+    rb.AddForceAtPosition(
+        correctionForce,
+        wheel.position,
+        ForceMode.Force);
+
+    if (drawDebug)
     {
-        Vector3 velocityAtWheel =
-            rb.GetPointVelocity(
-                wheel.position);
-
-        Vector3 lateralVelocity =
-            Vector3.Project(
-                velocityAtWheel,
-                wheel.forward);
-
-        Vector3 correctionForce =
-            -lateralVelocity *
-            lateralGrip;
-
-        rb.AddForceAtPosition(
-            correctionForce,
+        // Dibujamos el rayo hacia el lado para ver el vector de agarre lateral
+        Debug.DrawRay(
             wheel.position,
-            ForceMode.Force);
-
-        if (drawDebug)
-        {
-            Debug.DrawRay(
-                wheel.position,
-                wheel.forward * 0.10f,
-                Color.green);
-        }
+            wheel.right * 0.10f,
+            Color.green);
     }
+}
 
     // =====================================================
     // PUBLIC API

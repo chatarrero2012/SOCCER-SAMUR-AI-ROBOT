@@ -2,8 +2,8 @@ using UnityEngine;
 using System.Collections.Generic;
 
 /// <summary>
-/// COMPETENCY-BASED DASHBOARD (Fila Kinetic Tracker - Edición Corregida)
-/// Interfaz unificada libre de errores de compilación para el monitoreo del 10%.
+/// COMPETENCY-BASED DASHBOARD (Fila Kinetic Tracker V4)
+/// Interfaz analítica unificada optimizada para la visualización del objetivo de goles.
 /// </summary>
 public class CompetencyDashboard : MonoBehaviour
 {
@@ -51,7 +51,7 @@ public class CompetencyDashboard : MonoBehaviour
         
         float totalReward = MatchAnalytics.TotalReward;
         float rewardGoals = MatchAnalytics.RewardFromGoals;
-        float penalizacionesFijas = (ownGoals * -500f) + (TotalTimeouts * -30f) + (TotalFalls * -30f);
+        float penalizacionesFijas = (ownGoals * -600f) + (TotalTimeouts * -20f) + (TotalFalls * -20f);
         float shapingReward = totalReward - rewardGoals - penalizacionesFijas;
 
         // --- SECCIÓN 1: RESULTADOS ---
@@ -69,8 +69,8 @@ Fall Rate:     {(fallRate * 100f):F2}%");
 Total Reward:  {totalReward:F1}
 From Goals:    {rewardGoals:F1}
 Shaping Kinetic:{shapingReward:F1}
-Striker Force: ✓ Bono de Impacto Inercial Activo
-Status:        🚀 ENTRENANDO AGRESIVIDAD");
+Drag Vector:   ✓ Arrastre Hacia Arco Rival Activo
+Status:        🔥 ALINEANDO GRADIENTE AGRESIVO");
 
         // --- SECCIÓN 3: FILA / CURVA INDICADORA DEL OBJETIVO ---
         GUI.Box(new Rect(620, 40, 270, 130), "📊 CURVA DE GOAL RATE (META > 10%)");
@@ -87,7 +87,7 @@ Status:        🚀 ENTRENANDO AGRESIVIDAD");
 
         // --- SECCIÓN 4: VEREDICTO DE COMBATE ---
         string rank = GetSamuraiRank(goalRate, MatchAnalytics.TotalEpisodes);
-        string verdict = goalRate >= 0.10f ? "✓ OBJETIVO OPERATIVO COMPLETADO" : "🔥 FORZANDO TRANSFERENCIA DE MOMENTUM RECIENTE";
+        string verdict = goalRate >= 0.10f ? "✓ OBJETIVO OPERATIVO COMPLETADO" : "🔥 EXPLOITANDO PICOS DE RECOMPENSA SUPERIORES A 500";
 
         GUI.color = goalRate >= 0.10f ? Color.green : Color.yellow;
         GUI.Label(new Rect(20, 200, 400, 30), $"RANK: {rank}");
@@ -95,8 +95,8 @@ Status:        🚀 ENTRENANDO AGRESIVIDAD");
         GUI.color = Color.white;
 
         // --- SECCIÓN 5: ESTADO DE SEQUÍA ---
-        bool inDrought = (MatchAnalytics.TotalEpisodes > 30) && (goalRate < 0.02f); 
-        string droughtStatus = inDrought ? "🧪 MODO TIRO LIBRE ACTIVO: Forzando Penales Críticos" : "✓ RITMO DE JUEGO DINÁMICO";
+        bool inDrought = (MatchAnalytics.TotalEpisodes > 25) && (goalRate < 0.02f); 
+        string droughtStatus = inDrought ? "🧪 TIRO LIBRE ACTIVO: Forzando Penales Estrictos" : "✓ RITMO DE JUEGO DINÁMICO";
         GUI.color = inDrought ? Color.red : Color.green;
         GUI.Label(new Rect(20, 280, 860, 30), $"LAB STATUS: {droughtStatus}");
         GUI.color = Color.white;
@@ -104,17 +104,17 @@ Status:        🚀 ENTRENANDO AGRESIVIDAD");
         // --- SECCIÓN 6: REPORTES DE DOJO ---
         GUI.Label(new Rect(20, 330, 860, 150),
         $@"═══════════════════ REPORTE DE SALUD DEL MODELO ═══════════════════
-📊 Toques Totales registrados en el balón: {MatchAnalytics.BallTouches}
-⚡ El agente ha aprendido a buscar el balón. Ahora se le premia si lo embiste con velocidad lineal.
-🎯 Dejar correr. Las recompensas dinámicas del arco eclipsarán el comportamiento pasivo.");
+📊 Total de Impactos Cinéticos: {TotalCollisions} | Episodios Totales: {MatchAnalytics.TotalEpisodes}
+🚀 El imán de arrastre vectorial está activo: El agente es premiado continuamente mientras sostenga el avance del balón.
+🎯 El marcador del 10% se actualizará en tiempo real. Deja correr el entrenamiento.");
 
         GUI.DragWindow();
     }
 
     private string GetSamuraiRank(float goalRate, int episodes)
     {
-        if (goalRate < 0.02f) return "BUSCADOR PACÍFICO (FALTA IMPACTO)";
-        if (goalRate < 0.10f) return "DELANTERO EN RANGO (COMPORTAMIENTO CINÉTICO)";
+        if (goalRate < 0.02f) return "STRIKER ASUSTADO (PATEANDO SIN SEGUIMIENTO)";
+        if (goalRate < 0.10f) return "DELANTERO EN RANGO (COMPORTAMIENTO DE EMPUJE)";
         return "ELITE STRIKER (> 10% GOAL METRIC REALIZADO)";
     }
 
