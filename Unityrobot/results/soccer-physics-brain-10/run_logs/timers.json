@@ -1,0 +1,42 @@
+{
+    "name": "root",
+    "metadata": {
+        "timer_format_version": "0.1.0",
+        "start_time_seconds": "1782737564",
+        "python_version": "3.8.2 (default, Dec 21 2020, 15:06:04) \n[Clang 12.0.0 (clang-1200.0.32.29)]",
+        "command_line_arguments": "/Users/admin/Documents/unity/robot/SOCCER-SAMUR-AI-ROBOT/Unityrobot/clean_env/lib/python3.8/site-packages/mlagents/trainers/learn.py config/ppo.yaml --run-id soccer-physics-brain-10",
+        "mlagents_version": "0.28.0",
+        "mlagents_envs_version": "0.28.0",
+        "communication_protocol_version": "1.5.0",
+        "pytorch_version": "1.8.1",
+        "numpy_version": "1.21.6",
+        "end_time_seconds": "1782737628"
+    },
+    "total": 64.408566125,
+    "count": 1,
+    "self": 0.039103854000003935,
+    "children": {
+        "run_training.setup": {
+            "total": 0.09644228099999985,
+            "count": 1,
+            "self": 0.09644228099999985
+        },
+        "TrainerController.start_learning": {
+            "total": 64.27301999,
+            "count": 1,
+            "self": 0.002831012000001465,
+            "children": {
+                "TrainerController._reset_env": {
+                    "total": 64.269562088,
+                    "count": 1,
+                    "self": 64.269562088
+                },
+                "TrainerController._save_models": {
+                    "total": 0.000626889999992386,
+                    "count": 1,
+                    "self": 0.000626889999992386
+                }
+            }
+        }
+    }
+}

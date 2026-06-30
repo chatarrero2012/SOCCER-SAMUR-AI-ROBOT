@@ -1,0 +1,56 @@
+{
+    "SoccerAgent": {
+        "checkpoints": [
+            {
+                "steps": 499946,
+                "file_path": "results/soccer-physics-brain-05/SoccerAgent/SoccerAgent-499946.onnx",
+                "reward": null,
+                "creation_time": 1782416410.106272,
+                "auxillary_file_paths": [
+                    "results/soccer-physics-brain-05/SoccerAgent/SoccerAgent-499946.pt"
+                ]
+            },
+            {
+                "steps": 828864,
+                "file_path": "results/soccer-physics-brain-05/SoccerAgent/SoccerAgent-828864.onnx",
+                "reward": -99.87336251139641,
+                "creation_time": 1782421821.284686,
+                "auxillary_file_paths": [
+                    "results/soccer-physics-brain-05/SoccerAgent/SoccerAgent-828864.pt"
+                ]
+            },
+            {
+                "steps": 999993,
+                "file_path": "results/soccer-physics-brain-05/SoccerAgent/SoccerAgent-999993.onnx",
+                "reward": -99.92925772815943,
+                "creation_time": 1782424271.65804,
+                "auxillary_file_paths": [
+                    "results/soccer-physics-brain-05/SoccerAgent/SoccerAgent-999993.pt"
+                ]
+            },
+            {
+                "steps": 1110255,
+                "file_path": "results/soccer-physics-brain-05/SoccerAgent/SoccerAgent-1110255.onnx",
+                "reward": -48.464510217309,
+                "creation_time": 1782426035.07088,
+                "auxillary_file_paths": [
+                    "results/soccer-physics-brain-05/SoccerAgent/SoccerAgent-1110255.pt"
+                ]
+            }
+        ],
+        "final_checkpoint": {
+            "steps": 1110255,
+            "file_path": "results/soccer-physics-brain-05/SoccerAgent.onnx",
+            "reward": -48.464510217309,
+            "creation_time": 1782426035.07088,
+            "auxillary_file_paths": [
+                "results/soccer-physics-brain-05/SoccerAgent/SoccerAgent-1110255.pt"
+            ]
+        }
+    },
+    "metadata": {
+        "stats_format_version": "0.3.0",
+        "mlagents_version": "0.28.0",
+        "torch_version": "1.8.1"
+    }
+}

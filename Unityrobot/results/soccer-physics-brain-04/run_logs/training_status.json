@@ -2,31 +2,40 @@
     "SoccerAgent": {
         "checkpoints": [
             {
-                "steps": 499964,
-                "file_path": "results/soccer-physics-brain-04/SoccerAgent/SoccerAgent-499964.onnx",
+                "steps": 2499992,
+                "file_path": "results/soccer-physics-brain-04/SoccerAgent/SoccerAgent-2499992.onnx",
                 "reward": null,
-                "creation_time": 1781732307.173082,
+                "creation_time": 1782391276.411571,
                 "auxillary_file_paths": [
-                    "results/soccer-physics-brain-04/SoccerAgent/SoccerAgent-499964.pt"
+                    "results/soccer-physics-brain-04/SoccerAgent/SoccerAgent-2499992.pt"
                 ]
             },
             {
-                "steps": 596590,
-                "file_path": "results/soccer-physics-brain-04/SoccerAgent/SoccerAgent-596590.onnx",
-                "reward": 58.128690681712115,
-                "creation_time": 1781735258.2046669,
+                "steps": 2876878,
+                "file_path": "results/soccer-physics-brain-04/SoccerAgent/SoccerAgent-2876878.onnx",
+                "reward": -99.93321680277586,
+                "creation_time": 1782399133.070848,
                 "auxillary_file_paths": [
-                    "results/soccer-physics-brain-04/SoccerAgent/SoccerAgent-596590.pt"
+                    "results/soccer-physics-brain-04/SoccerAgent/SoccerAgent-2876878.pt"
+                ]
+            },
+            {
+                "steps": 2919371,
+                "file_path": "results/soccer-physics-brain-04/SoccerAgent/SoccerAgent-2919371.onnx",
+                "reward": -99.71586997807026,
+                "creation_time": 1782403422.525832,
+                "auxillary_file_paths": [
+                    "results/soccer-physics-brain-04/SoccerAgent/SoccerAgent-2919371.pt"
                 ]
             }
         ],
         "final_checkpoint": {
-            "steps": 596590,
+            "steps": 2919371,
             "file_path": "results/soccer-physics-brain-04/SoccerAgent.onnx",
-            "reward": 58.128690681712115,
-            "creation_time": 1781735258.2046669,
+            "reward": -99.71586997807026,
+            "creation_time": 1782403422.525832,
             "auxillary_file_paths": [
-                "results/soccer-physics-brain-04/SoccerAgent/SoccerAgent-596590.pt"
+                "results/soccer-physics-brain-04/SoccerAgent/SoccerAgent-2919371.pt"
             ]
         }
     },

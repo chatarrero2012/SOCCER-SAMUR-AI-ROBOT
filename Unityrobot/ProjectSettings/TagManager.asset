@@ -5,6 +5,8 @@ TagManager:
   serializedVersion: 2
   tags:
   - Ball
+  - Enemy
+  - Wall
   layers:
   - Default
   - TransparentFX
@@ -17,7 +19,7 @@ TagManager:
   - Robot
   - NPC
   - Goal
-  - 
+  - Wall
   - 
   - 
   - 

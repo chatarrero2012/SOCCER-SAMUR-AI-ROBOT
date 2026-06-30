@@ -1,6 +1,10 @@
 using UnityEngine;
 using System.Collections.Generic;
 
+/// <summary>
+/// METRIC ENGINE - MATCH ANALYTICS (Completo V3.1)
+/// Sistema robusto para el cálculo de ventanas móviles sin errores cruzados.
+/// </summary>
 public static class MatchAnalytics
 {
     public static int TotalEpisodes;
@@ -37,7 +41,7 @@ public static class MatchAnalytics
         if (recentTouches.Count >= WINDOW_SIZE) recentTouches.Dequeue();
         recentTouches.Enqueue(touchedBall);
 
-        if (recentGoals.Count >= WINDOW_SIZE * 2) recentGoals.Dequeue();
+        if (recentGoals.Count >= WINDOW_SIZE) recentGoals.Dequeue();
         recentGoals.Enqueue(scoredGoal);
 
         if (recentSpeeds.Count >= WINDOW_SIZE) recentSpeeds.Dequeue();
@@ -45,7 +49,7 @@ public static class MatchAnalytics
         
         AverageBallSpeed = 0f;
         foreach (float s in recentSpeeds) AverageBallSpeed += s;
-        AverageBallSpeed /= recentSpeeds.Count;
+        if (recentSpeeds.Count > 0) AverageBallSpeed /= recentSpeeds.Count;
     }
 
     public static void RecordBallSpeed(float speed)
@@ -57,32 +61,11 @@ public static class MatchAnalytics
     public static void AddGoalReward(float amount) { RewardFromGoals += amount; }
     public static void AddShapingReward(float amount) { RewardFromShaping += amount; }
 
-    public static TrainingPhase GetCurrentPhase()
-    {
-        if (TotalEpisodes < 20) return TrainingPhase.Phase1_Fundamentos;
-
-        float recentTouchRate = 0f;
-        foreach (bool t in recentTouches) if (t) recentTouchRate++;
-        recentTouchRate /= recentTouches.Count;
-
-        float recentGoalRate = 0f;
-        foreach (bool g in recentGoals) if (g) recentGoalRate++;
-        recentGoalRate /= recentGoals.Count;
-
-        if (recentTouchRate > 0.60f)
-        {
-            if (PeakBallSpeed > 1.5f && recentGoalRate > 0.05f)
-            {
-                if (TotalEpisodes > 100 && recentGoalRate > 0.15f && PeakBallSpeed > 3.0f)
-                {
-                    return TrainingPhase.Phase4_Estrategia;
-                }
-                return TrainingPhase.Phase3_Maestria;
-            }
-            return TrainingPhase.Phase2_Tecnica;
-        }
-
-        return TrainingPhase.Phase1_Fundamentos;
+    public static float GetRecentGoalRate() 
+    { 
+        float rate = 0f; 
+        foreach (bool g in recentGoals) if (g) rate++; 
+        return recentGoals.Count > 0 ? rate / recentGoals.Count : 0f; 
     }
 
     public static float GetRecentTouchRate() 
@@ -92,10 +75,26 @@ public static class MatchAnalytics
         return recentTouches.Count > 0 ? rate / recentTouches.Count : 0f; 
     }
 
-    public static float GetRecentGoalRate() 
-    { 
-        float rate = 0f; 
-        foreach (bool g in recentGoals) if (g) rate++; 
-        return recentGoals.Count > 0 ? rate / recentGoals.Count : 0f; 
+    public static TrainingPhase GetCurrentPhase()
+    {
+        if (TotalEpisodes < 20) return TrainingPhase.Phase1_Fundamentos;
+
+        float recentTouchRate = GetRecentTouchRate();
+        float recentGoalRate = GetRecentGoalRate();
+
+        if (recentTouchRate > 0.40f)
+        {
+            if (recentGoalRate > 0.05f)
+            {
+                if (TotalEpisodes > 100 && recentGoalRate > 0.12f)
+                {
+                    return TrainingPhase.Phase4_Estrategia;
+                }
+                return TrainingPhase.Phase3_Maestria;
+            }
+            return TrainingPhase.Phase2_Tecnica;
+        }
+
+        return TrainingPhase.Phase1_Fundamentos;
     }
 }

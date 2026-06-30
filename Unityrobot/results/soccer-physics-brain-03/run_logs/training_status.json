@@ -2,40 +2,22 @@
     "SoccerAgent": {
         "checkpoints": [
             {
-                "steps": 499938,
-                "file_path": "results/soccer-physics-brain-03/SoccerAgent/SoccerAgent-499938.onnx",
-                "reward": 38.191556074656546,
-                "creation_time": 1781709496.725525,
+                "steps": 81165,
+                "file_path": "results/soccer-physics-brain-03/SoccerAgent/SoccerAgent-81165.onnx",
+                "reward": 0.21134243770079178,
+                "creation_time": 1782306487.028415,
                 "auxillary_file_paths": [
-                    "results/soccer-physics-brain-03/SoccerAgent/SoccerAgent-499938.pt"
-                ]
-            },
-            {
-                "steps": 999948,
-                "file_path": "results/soccer-physics-brain-03/SoccerAgent/SoccerAgent-999948.onnx",
-                "reward": null,
-                "creation_time": 1781717208.043421,
-                "auxillary_file_paths": [
-                    "results/soccer-physics-brain-03/SoccerAgent/SoccerAgent-999948.pt"
-                ]
-            },
-            {
-                "steps": 1042735,
-                "file_path": "results/soccer-physics-brain-03/SoccerAgent/SoccerAgent-1042735.onnx",
-                "reward": 4.8502497230656445,
-                "creation_time": 1781717835.957079,
-                "auxillary_file_paths": [
-                    "results/soccer-physics-brain-03/SoccerAgent/SoccerAgent-1042735.pt"
+                    "results/soccer-physics-brain-03/SoccerAgent/SoccerAgent-81165.pt"
                 ]
             }
         ],
         "final_checkpoint": {
-            "steps": 1042735,
+            "steps": 81165,
             "file_path": "results/soccer-physics-brain-03/SoccerAgent.onnx",
-            "reward": 4.8502497230656445,
-            "creation_time": 1781717835.957079,
+            "reward": 0.21134243770079178,
+            "creation_time": 1782306487.028415,
             "auxillary_file_paths": [
-                "results/soccer-physics-brain-03/SoccerAgent/SoccerAgent-1042735.pt"
+                "results/soccer-physics-brain-03/SoccerAgent/SoccerAgent-81165.pt"
             ]
         }
     },
