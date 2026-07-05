@@ -2,8 +2,7 @@ using UnityEngine;
 using System.Collections.Generic;
 
 /// <summary>
-/// METRIC ENGINE - MATCH ANALYTICS (Edición Definitiva V4)
-/// Cálculos estables en ventana móvil de 50 episodios para monitorear el progreso exacto.
+/// METRIC ENGINE - MATCH ANALYTICS (Edición Cátedra Progresiva)
 /// </summary>
 public static class MatchAnalytics
 {
@@ -22,7 +21,14 @@ public static class MatchAnalytics
     private static Queue<float> recentSpeeds = new Queue<float>();
     private const int WINDOW_SIZE = 50;
 
-    public enum TrainingPhase { Phase1_Fundamentos, Phase2_Tecnica, Phase3_Maestria, Phase4_Estrategia }
+    
+    public enum TrainingPhase 
+    { 
+        Phase1_Fundamentos, 
+        Phase2_Tecnica, 
+        Phase3_Maestria, 
+        Phase4_OpenMatchMastery 
+    }
 
     public static void Reset()
     {
@@ -77,24 +83,10 @@ public static class MatchAnalytics
 
     public static TrainingPhase GetCurrentPhase()
     {
-        if (TotalEpisodes < 20) return TrainingPhase.Phase1_Fundamentos;
-
-        float recentTouchRate = GetRecentTouchRate();
         float recentGoalRate = GetRecentGoalRate();
-
-        if (recentTouchRate > 0.40f)
-        {
-            if (recentGoalRate > 0.05f)
-            {
-                if (TotalEpisodes > 100 && recentGoalRate > 0.12f)
-                {
-                    return TrainingPhase.Phase4_Estrategia;
-                }
-                return TrainingPhase.Phase3_Maestria;
-            }
-            return TrainingPhase.Phase2_Tecnica;
-        }
-
-        return TrainingPhase.Phase1_Fundamentos;
+        if (recentGoalRate < 0.35f) return TrainingPhase.Phase1_Fundamentos;
+        if (recentGoalRate < 0.65f) return TrainingPhase.Phase2_Tecnica;
+        if (recentGoalRate < 0.85f) return TrainingPhase.Phase3_Maestria;
+        return TrainingPhase.Phase4_OpenMatchMastery;
     }
 }

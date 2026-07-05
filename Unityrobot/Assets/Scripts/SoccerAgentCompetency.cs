@@ -5,8 +5,8 @@ using Unity.MLAgents.Actuators;
 using System.Collections.Generic;
 
 /// <summary>
-/// AGENTE DE FÚTBOL - MAX GOAL VECTOR PRESSURE (Edición Completa V4)
-/// Optimizado con atracción kinética continua hacia el arco rival para superar el 10% de efectividad.
+/// AGENTE DE FÚTBOL - CURRICULUM GEOMETRIC ALIGNMENT (Edición Cátedra Progresiva V5)
+/// Diseñado para evitar el Sim2Real mediante bootstrapping posicional adaptativo.
 /// </summary>
 public class SoccerAgentCompetency : Agent, IGoalScorer
 {
@@ -18,22 +18,25 @@ public class SoccerAgentCompetency : Agent, IGoalScorer
     public Transform ball;
     public Transform enemyGoal;
     public Transform ownGoal;
-    public Transform enemy;
+    public Transform enemy; // Excluido de las observaciones para evitar contaminación.
+
+    [Header("🎓 CÁTEDRA PROGRESIVA (Curriculum Points)")]
+    public int currentLevel = 0; 
+    public Transform cornerLeftPoint;
+    public Transform cornerRightPoint;
+    public Transform lateralPoint;
+    public Transform penaltyPoint; // COPATIBLE CON EL LEVEL 2
+    public int droughtThreshold = 10;
 
     [Header("⚔ PURE REWARDS")]
-    public float goalReward = 3000f; // Máxima recompensa histórica para saturar la red con el gol
-    public float ownGoalPenalty = -600f; 
+    public float goalReward = 3500f; 
+    public float ownGoalPenalty = -700f; 
+    public float stepPenalty = -0.01f; // Penalización existencial suave para buscar eficiencia temporal
 
-    [Header("👟 INCENTIVOS KINÉTICOS (Reward Shaping)")]
+    [Header("👟 INCENTIVOS VECTORIALES (Rozamiento Real)")]
     public float ballAccelerationReward = 0.8f; 
-    public float forwardGoalBreadcrumb = 0.5f;   
-    public float accelerationThreshold = 0.15f;   
-
-    [Header("🧪 ROLLING DROUGHT (Sequía Constante)")]
-    public int droughtThreshold = 25; // Súper estricto: si se estanca, va directo a practicar penales
-    public Transform penaltyPoint;
-    public Transform penaltyRobotPoint;
-    public float penaltyMicroNoise = 0.3f;
+    public float forwardGoalBreadcrumb = 1.0f;   
+    public float accelerationThreshold = 0.12f;   
 
     [Header("Spawn & Physics")]
     public Rigidbody robotRb;
@@ -44,7 +47,7 @@ public class SoccerAgentCompetency : Agent, IGoalScorer
     public float robotSpawnRadius = 0.4f;
     public float ballSpawnRadius = 0.4f;
     public float fallHeight = -0.5f;
-    public float maxEpisodeSeconds = 20f;
+    public float maxEpisodeSeconds = 15f; 
 
     [Header("Personality Weights")]
     public Vector4 personality = new Vector4(2.5f, 2.0f, 1.5f, 1.0f);
@@ -61,6 +64,17 @@ public class SoccerAgentCompetency : Agent, IGoalScorer
     private float lastDistanceToBall;
     private float lastDistanceBallToGoal;
 
+    [Header("Curriculum Learning")]
+    public int currentLesson = 0;
+    public int consecutiveGoals = 0;
+
+    // CALIBRACIÓN ESTRICTA (Basada en tu cancha de 2.73m x 1.27m)
+    // El límite físico máximo en X es -2.4f (cerca a tu propio arco)
+    private float[] maxDepths =   { -0.35f, -0.60f, -1.00f, -1.50f, -2.00f, -2.40f };
+
+    // El límite físico máximo en Z es 0.63f. Dejamos un margen de seguridad de 0.13m para no pegar a la pared.
+    private float[] maxLaterals = {  0.00f,  0.15f,  0.25f,  0.35f,  0.45f,  0.50f };
+
     private List<float> lastObservationsList = new List<float>();
     public float[] GetLastObservations() => lastObservationsList.ToArray();
 
@@ -70,7 +84,7 @@ public class SoccerAgentCompetency : Agent, IGoalScorer
         lastObservationsList.Add(val);
     }
 
-    private void Awake()
+    public override void Initialize()
     {
         NormalizePersonality();
     }
@@ -97,19 +111,169 @@ public class SoccerAgentCompetency : Agent, IGoalScorer
         
         if (motorDriver != null) motorDriver.SetMotorInputs(0f, 0f);
 
+        // Ajustar nivel del currículo basado en analíticas de ventana móvil
+        EvaluateCurriculumProgress();
+
         personality = new Vector4(
             Random.Range(2.0f, 5.0f), 
             Random.Range(1.5f, 4.0f), 
             Random.Range(1.0f, 3.0f), 
             Random.Range(0.2f, 2.5f)  
         );
-
+        
         NormalizePersonality();
-        SpawnEpisode();
+        SpawnCurriculumEpisode();
 
         if (ballRb != null) lastBallSpeed = ballRb.velocity.magnitude;
         if (ball != null && robotRoot != null) lastDistanceToBall = Vector3.Distance(robotRoot.position, ball.position);
         if (ball != null && enemyGoal != null) lastDistanceBallToGoal = Vector3.Distance(ball.position, enemyGoal.position);
+    }
+
+    private void EvaluateCurriculumProgress()
+    {
+        if (episodesSinceLastGoal >= droughtThreshold)
+        {
+            currentLevel = 0;
+            return;
+        }
+
+        float currentGoalRate = MatchAnalytics.GetRecentGoalRate();
+        int totalEp = MatchAnalytics.TotalEpisodes;
+
+        if (totalEp >= 20)
+        {
+            if (currentGoalRate > 0.85f && currentLevel < 4)
+            {
+                currentLevel++;
+                episodesSinceLastGoal = 0; 
+            }
+            else if (currentGoalRate < 0.30f && currentLevel > 0)
+            {
+                currentLevel--; 
+            }
+        }
+    }
+
+    private void SpawnCurriculumEpisode()
+    {
+        // 1. DESACTIVACIÓN CINEMÁTICA MOMENTÁNEA
+        if (ballRb != null) 
+        { 
+            ballRb.isKinematic = true;
+            ballRb.velocity = Vector3.zero; 
+            ballRb.angularVelocity = Vector3.zero; 
+        }
+        if (robotRb != null) 
+        { 
+            robotRb.isKinematic = true;
+            robotRb.velocity = Vector3.zero; 
+            robotRb.angularVelocity = Vector3.zero; 
+        }
+
+        Vector3 targetBallPos = ballSpawnCenter;
+        float robotOffsetDistance = 0.35f; 
+
+        // MICRO-LEVITACIÓN DE SEGURIDAD
+        float safeHeightBall = ballSpawnCenter.y + 0.08f;
+        float safeHeightRobot = robotSpawnCenter.y + 0.08f;
+
+        switch (currentLevel)
+        {
+            case 0:
+            {
+                currentLesson = Mathf.Clamp(currentLesson, 0, maxDepths.Length - 1);
+
+                float minDepth = -0.35f; 
+                float maxDepth = maxDepths[currentLesson];
+                float lateralRange = maxLaterals[currentLesson];
+
+                float randomDepth = Random.Range(minDepth, maxDepth);   
+                float randomLateral = Random.Range(-lateralRange, lateralRange);  
+
+                Vector3 localBallOffset = (enemyGoal.right * randomDepth) + (Vector3.forward * randomLateral);
+                targetBallPos = enemyGoal.position + localBallOffset;
+                targetBallPos.y = safeHeightBall; 
+                ball.position = targetBallPos;
+                
+                AlignRobotBehindBall(targetBallPos, robotOffsetDistance);
+                
+                Vector3 rPos0 = robotRoot.position; 
+                rPos0.y = safeHeightRobot; 
+                robotRoot.position = rPos0;
+            }
+            break;
+
+            case 1: 
+                targetBallPos = Vector3.Lerp(ballSpawnCenter, enemyGoal.position, 0.4f);
+                targetBallPos.y = safeHeightBall;
+                ball.position = targetBallPos;
+                
+                AlignRobotBehindBall(targetBallPos, robotOffsetDistance);
+                Vector3 rPos1 = robotRoot.position; rPos1.y = safeHeightRobot; robotRoot.position = rPos1;
+                break;
+
+            case 2: 
+                if (penaltyPoint != null) targetBallPos = penaltyPoint.position;
+                else targetBallPos = Vector3.Lerp(ballSpawnCenter, enemyGoal.position, 0.6f);
+                
+                targetBallPos += new Vector3(Random.Range(-0.1f, 0.1f), 0f, Random.Range(-0.1f, 0.1f));
+                targetBallPos.y = safeHeightBall;
+                ball.position = targetBallPos;
+                
+                AlignRobotBehindBall(ball.position, robotOffsetDistance);
+                Vector3 rPos2 = robotRoot.position; rPos2.y = safeHeightRobot; robotRoot.position = rPos2;
+                break;
+
+            case 3: 
+                Transform selectedTransform = lateralPoint;
+                int tacticalIndex = Random.Range(0, 3);
+                if (tacticalIndex == 0 && cornerLeftPoint != null) selectedTransform = cornerLeftPoint;
+                if (tacticalIndex == 1 && cornerRightPoint != null) selectedTransform = cornerRightPoint;
+
+                if (selectedTransform != null)
+                {
+                    CornerPoint scriptMover = selectedTransform.GetComponent<CornerPoint>();
+                    if (scriptMover != null)
+                    {
+                        scriptMover.AleatorizarEjeX(); 
+                    }
+                    targetBallPos = selectedTransform.position;
+                }
+                
+                targetBallPos.y = safeHeightBall;
+                ball.position = targetBallPos;
+                
+                AlignRobotBehindBall(ball.position, robotOffsetDistance);
+                Vector3 rPos3 = robotRoot.position; rPos3.y = safeHeightRobot; robotRoot.position = rPos3;
+                break;
+
+            case 4: 
+                Vector2 ballOffset = Random.insideUnitCircle * ballSpawnRadius;
+                Vector3 bPos = ballSpawnCenter + new Vector3(ballOffset.x, 0f, ballOffset.y);
+                bPos.y = safeHeightBall;
+                ball.position = bPos;
+
+                Vector2 robotOffset = Random.insideUnitCircle * robotSpawnRadius;
+                Vector3 rPos4 = robotSpawnCenter + new Vector3(robotOffset.x, 0f, robotOffset.y);
+                rPos4.y = safeHeightRobot;
+                robotRoot.position = rPos4;
+                robotRoot.rotation = Quaternion.Euler(0f, Random.Range(0f, 360f), 0f);
+                break;
+        }
+
+        // RECONEXIÓN DINÁMICA DE FÍSICAS
+        if (ballRb != null) ballRb.isKinematic = false;
+        if (robotRb != null) robotRb.isKinematic = false;
+    }
+
+    private void AlignRobotBehindBall(Vector3 ballPos, float distanceBehind)
+    {
+        Vector3 forwardToGoal = enemyGoal.right;
+        forwardToGoal.y = 0f; 
+        forwardToGoal.Normalize();
+
+        robotRoot.position = ballPos - (forwardToGoal * distanceBehind);
+        robotRoot.rotation = Quaternion.LookRotation(forwardToGoal);
     }
 
     public override void CollectObservations(VectorSensor sensor)
@@ -165,41 +329,38 @@ public class SoccerAgentCompetency : Agent, IGoalScorer
         
         if (motorDriver != null) motorDriver.SetMotorInputs(leftMotor, rightMotor);
 
+        AddReward(stepPenalty);
+        MatchAnalytics.AddReward(stepPenalty);
+
         EvaluateBallKinetics();
         CheckFallConditions();
 
         episodeTimer += Time.fixedDeltaTime;
-        
-        if (episodeTimer >= maxEpisodeSeconds)
-        {
-            FinishEpisode();
-        }
+        if (episodeTimer >= maxEpisodeSeconds) FinishEpisode();
     }
 
     private void EvaluateBallKinetics()
     {
         if (ballRb == null || enemyGoal == null || Time.fixedDeltaTime == 0f || ball == null || robotRb == null) return;
 
-        // 1. IMÁN ACERCARSE AL BALÓN
         float currentDistanceToBall = Vector3.Distance(robotRoot.position, ball.position);
         float distanceDelta = lastDistanceToBall - currentDistanceToBall;
         lastDistanceToBall = currentDistanceToBall;
 
         if (distanceDelta > 0.001f) 
         {
-            float approachReward = distanceDelta * 0.3f * _p.z; 
+            float approachReward = distanceDelta * 0.4f * _p.z; 
             AddReward(approachReward);
             MatchAnalytics.AddReward(approachReward);
         }
 
-        // 2. EMPUJE CONTINUO DEL BALÓN AL ARCO ENEMIGO (Resuelve el estancamiento post-impacto)
         float currentDistanceBallToGoal = Vector3.Distance(ball.position, enemyGoal.position);
         float ballToGoalDelta = lastDistanceBallToGoal - currentDistanceBallToGoal;
         lastDistanceBallToGoal = currentDistanceBallToGoal;
 
         if (ballToGoalDelta > 0.001f && hasTouchedBallThisEpisode)
         {
-            float forwardPushReward = ballToGoalDelta * 2.0f * _p.x;
+            float forwardPushReward = ballToGoalDelta * 2.5f * _p.x;
             AddReward(forwardPushReward);
             MatchAnalytics.AddReward(forwardPushReward);
         }
@@ -208,11 +369,10 @@ public class SoccerAgentCompetency : Agent, IGoalScorer
         float acceleration = (currentBallSpeed - lastBallSpeed) / Time.fixedDeltaTime;
         lastBallSpeed = currentBallSpeed;
 
-        // 3. BONO POR GOLPE SEGURO
         if (currentDistanceToBall < 0.35f && robotRb.velocity.magnitude > 0.4f && acceleration > 0.1f)
         {
             hasTouchedBallThisEpisode = true;
-            float strikeReward = robotRb.velocity.magnitude * 0.8f * _p.y;
+            float strikeReward = robotRb.velocity.magnitude * 1.0f * _p.y;
             AddReward(strikeReward);
             MatchAnalytics.AddReward(strikeReward);
         }
@@ -220,19 +380,16 @@ public class SoccerAgentCompetency : Agent, IGoalScorer
         if (acceleration <= accelerationThreshold) return;
 
         float timeFactor = Mathf.Clamp(1f - (episodeTimer / maxEpisodeSeconds), 0.40f, 1f);
-
         float rewardValue = ballAccelerationReward * _p.y * timeFactor;
         AddReward(rewardValue);
         MatchAnalytics.AddReward(rewardValue);
 
-        // 4. DIRECCIÓN DEL VECTOR BALÓN-ARCO
         Vector3 directionToGoal = (enemyGoal.position - ball.position).normalized;
-        Vector3 ballVelocityDirection = ballRb.velocity.normalized;
-        float alignment = Vector3.Dot(ballVelocityDirection, directionToGoal);
+        float alignmentComponent = Vector3.Dot(ballRb.velocity, directionToGoal);
 
-        if (alignment > 0.1f) 
+        if (alignmentComponent > 0.05f) 
         {
-            float breadcrumbValue = (forwardGoalBreadcrumb * alignment) * _p.x;
+            float breadcrumbValue = (forwardGoalBreadcrumb * alignmentComponent) * _p.x * Time.fixedDeltaTime;
             AddReward(breadcrumbValue);
             MatchAnalytics.AddReward(breadcrumbValue);
         }
@@ -244,8 +401,8 @@ public class SoccerAgentCompetency : Agent, IGoalScorer
         {
             hasTouchedBallThisEpisode = true;
             CompetencyDashboard.RecordCollision();
-            AddReward(1.5f * _p.y);
-            MatchAnalytics.AddReward(1.5f * _p.y);
+            AddReward(2.0f * _p.y);
+            MatchAnalytics.AddReward(2.0f * _p.y);
         }
     }
 
@@ -256,6 +413,14 @@ public class SoccerAgentCompetency : Agent, IGoalScorer
         AddReward(reward);
         MatchAnalytics.AddGoalReward(reward);
         MatchAnalytics.AddReward(reward);
+
+        consecutiveGoals++;
+        if (consecutiveGoals >= 3) 
+        {
+            currentLesson++;
+            consecutiveGoals = 0;
+            Debug.Log($"<color=green>¡Graduado! Subiendo a Lección {currentLesson}</color>");
+        }
         
         episodesSinceLastGoal = 0; 
         FinishEpisode();
@@ -276,8 +441,24 @@ public class SoccerAgentCompetency : Agent, IGoalScorer
         if (!diedThisEpisode && !scoredGoalThisEpisode && !scoredOwnGoalThisEpisode)
         {
             CompetencyDashboard.RecordTimeout();
-            AddReward(-20f); // Penalización suave para mantener estable la política de exploración
-            MatchAnalytics.AddReward(-20f);
+            AddReward(-30f); 
+            MatchAnalytics.AddReward(-30f);
+        }
+
+        // CONTROL DE CURRICULUM CENTRALIZADO AL FINAL DEL INTENTO
+        if (!reachedGoal)
+        {
+            if (consecutiveGoals > 0) 
+            {
+                consecutiveGoals = 0; // Rompe la racha si el intento culmina sin éxito
+                Debug.Log("<color=yellow>Racha de goles reiniciada por fallo o tiempo límite.</color>");
+            }
+            else
+            {
+                // Si la racha ya era cero y sigue fallando, reduce un escalón de lección para recuperar confianza
+                currentLesson = Mathf.Max(0, currentLesson - 1);
+                Debug.Log($"<color=red>Dificultad reducida a Lección {currentLesson}</color>");
+            }
         }
 
         CompetencyDashboard.RecordEpisodeDuration(episodeTimer);
@@ -329,11 +510,7 @@ public class SoccerAgentCompetency : Agent, IGoalScorer
         if (Input.GetKey(KeyCode.A)) { left = -1f; right = 1f; }
         if (Input.GetKey(KeyCode.D)) { left = 1f; right = -1f; }
         
-        if (actions.Length >= 2)
-        {
-            actions[0] = left;
-            actions[1] = right;
-        }
+        if (actions.Length >= 2) { actions[0] = left; actions[1] = right; }
     }
 
     private void CheckFallConditions()
@@ -342,8 +519,7 @@ public class SoccerAgentCompetency : Agent, IGoalScorer
         {
             diedThisEpisode = true;
             CompetencyDashboard.RecordFall();
-            AddReward(-20f); 
-            MatchAnalytics.AddReward(-20f);
+            AddReward(-30f); MatchAnalytics.AddReward(-30f);
             FinishEpisode();
             return;
         }
@@ -353,31 +529,5 @@ public class SoccerAgentCompetency : Agent, IGoalScorer
             FinishEpisode();
             return;
         }
-    }
-
-    private void SpawnEpisode()
-    {
-        if (episodesSinceLastGoal >= droughtThreshold && penaltyPoint != null)
-        {
-            Vector3 noise = new Vector3(
-                Random.Range(-penaltyMicroNoise, penaltyMicroNoise), 
-                0f, 
-                Random.Range(-penaltyMicroNoise, penaltyMicroNoise)
-            );
-            ball.position = penaltyPoint.position + noise;
-            robotRoot.rotation = Quaternion.Euler(0f, 90f, 0f);
-            robotRoot.position = penaltyRobotPoint.position;
-        }
-        else
-        {
-            Vector2 ballOffset = Random.insideUnitCircle * ballSpawnRadius;
-            ball.position = ballSpawnCenter + new Vector3(ballOffset.x, 0f, ballOffset.y);
-            Vector2 robotOffset = Random.insideUnitCircle * robotSpawnRadius;
-            robotRoot.position = robotSpawnCenter + new Vector3(robotOffset.x, 0f, robotOffset.y);
-            robotRoot.rotation = Quaternion.Euler(0f, Random.Range(0f, 360f), 0f);
-        }
-
-        if (ballRb != null) { ballRb.velocity = Vector3.zero; ballRb.angularVelocity = Vector3.zero; }
-        if (robotRb != null) { robotRb.velocity = Vector3.zero; robotRb.angularVelocity = Vector3.zero; }
     }
 }

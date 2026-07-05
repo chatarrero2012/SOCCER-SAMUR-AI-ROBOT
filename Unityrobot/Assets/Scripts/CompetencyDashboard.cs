@@ -2,8 +2,7 @@ using UnityEngine;
 using System.Collections.Generic;
 
 /// <summary>
-/// COMPETENCY-BASED DASHBOARD (Fila Kinetic Tracker V4)
-/// Interfaz analítica unificada optimizada para la visualización del objetivo de goles.
+/// COMPETENCY-BASED DASHBOARD (Fila Kinetic Tracker V5 - Curriculum Edition)
 /// </summary>
 public class CompetencyDashboard : MonoBehaviour
 {
@@ -24,19 +23,21 @@ public class CompetencyDashboard : MonoBehaviour
     private const int WINDOW_SIZE = 50;
 
     private Texture2D _lineTex;
+    private SoccerAgentCompetency agentInstance;
 
     private void Awake()
     {
         _lineTex = new Texture2D(1, 1);
         _lineTex.SetPixel(0, 0, Color.green);
         _lineTex.Apply();
+        agentInstance = FindObjectOfType<SoccerAgentCompetency>();
     }
 
     private void OnGUI()
     {
         if (!showDashboard) return;
         GUI.skin.window.normal.textColor = Color.cyan;
-        windowRect = GUI.Window(12346, windowRect, DrawWindow, "⚔ SAMUR-AI KINETIC SHAPING CENTER");
+        windowRect = GUI.Window(12346, windowRect, DrawWindow, "⚔ SAMUR-AI CURRICULUM SHAPING CONTROL");
     }
 
     private void DrawWindow(int id)
@@ -51,71 +52,76 @@ public class CompetencyDashboard : MonoBehaviour
         
         float totalReward = MatchAnalytics.TotalReward;
         float rewardGoals = MatchAnalytics.RewardFromGoals;
-        float penalizacionesFijas = (ownGoals * -600f) + (TotalTimeouts * -20f) + (TotalFalls * -20f);
+        float penalizacionesFijas = (ownGoals * -700f) + (TotalTimeouts * -30f) + (TotalFalls * -30f);
         float shapingReward = totalReward - rewardGoals - penalizacionesFijas;
+
+        int currentLvl = agentInstance != null ? agentInstance.currentLevel : 0;
 
         // --- SECCIÓN 1: RESULTADOS ---
         GUI.Label(new Rect(20, 30, 280, 160),
         $@"═══════ RESULTADOS ═══════
 Episodes:      {MatchAnalytics.TotalEpisodes}
 Goals:         {goals} (Own: {ownGoals})
-Current Rate:  {(goalRate * 100f):F2}%
+Recent Rate:   {(goalRate * 100f):F2}%
 Timeout Rate:  {(timeoutRate * 100f):F2}%
 Fall Rate:     {(fallRate * 100f):F2}%");
 
-        // --- SECCIÓN 2: RECOMPENSAS ---
+        // --- SECCIÓN 2: CURRICULUM STATUS ---
         GUI.Label(new Rect(320, 30, 280, 160),
-        $@"══════ RECOMPENSAS ══════
-Total Reward:  {totalReward:F1}
-From Goals:    {rewardGoals:F1}
-Shaping Kinetic:{shapingReward:F1}
-Drag Vector:   ✓ Arrastre Hacia Arco Rival Activo
-Status:        🔥 ALINEANDO GRADIENTE AGRESIVO");
+        $@"══════ CÁTEDRA PROGRESIVA ══════
+Current Level:  LVL {currentLvl} - {GetLevelName(currentLvl)}
+Total Reward:   {totalReward:F1}
+Kinetic Shaping:{shapingReward:F1}
+Sim2Real Check: ✓ Laws of Physics Retained
+Status:         ⚙ ADAPTANDO MATRIZ DE SPAWN");
 
-        // --- SECCIÓN 3: FILA / CURVA INDICADORA DEL OBJETIVO ---
-        GUI.Box(new Rect(620, 40, 270, 130), "📊 CURVA DE GOAL RATE (META > 10%)");
+        // --- SECCIÓN 3: FILA INDICADORA DE EFECTIVIDAD ---
+        GUI.Box(new Rect(620, 40, 270, 130), "📊 CURVA DE RENDIMIENTO EFECTIVO");
+        float progressWidth = Mathf.Clamp01(goalRate / 0.90f) * 250f; 
         
-        float progressWidth = Mathf.Clamp01(goalRate / 0.20f) * 250f; 
-        
-        GUI.color = goalRate >= 0.10f ? Color.green : Color.yellow;
+        GUI.color = goalRate >= 0.90f ? Color.green : (goalRate >= 0.50f ? Color.yellow : Color.red);
         GUI.DrawTexture(new Rect(630, 90, progressWidth, 20), _lineTex);
         GUI.color = Color.white;
 
-        GUI.Box(new Rect(630 + 125, 80, 2, 40), ""); 
-        GUI.Label(new Rect(630 + 105, 125, 60, 20), "META 10%");
-        GUI.Label(new Rect(630, 65, 200, 20), $"Progreso Objetivo: {(goalRate / 0.10f * 100f):F1}%");
+        GUI.Box(new Rect(630 + 225, 80, 2, 40), ""); 
+        GUI.Label(new Rect(630 + 195, 125, 70, 20), "TARGET 90%");
+        GUI.Label(new Rect(630, 65, 200, 20), $"Progreso Meta: {(goalRate / 0.90f * 100f):F1}%");
 
-        // --- SECCIÓN 4: VEREDICTO DE COMBATE ---
-        string rank = GetSamuraiRank(goalRate, MatchAnalytics.TotalEpisodes);
-        string verdict = goalRate >= 0.10f ? "✓ OBJETIVO OPERATIVO COMPLETADO" : "🔥 EXPLOITANDO PICOS DE RECOMPENSA SUPERIORES A 500";
-
-        GUI.color = goalRate >= 0.10f ? Color.green : Color.yellow;
-        GUI.Label(new Rect(20, 200, 400, 30), $"RANK: {rank}");
-        GUI.Label(new Rect(20, 230, 600, 30), $"VERDICT: {verdict}");
+        // --- SECCIÓN 4: VEREDICTO ---
+        string phaseName = MatchAnalytics.GetCurrentPhase().ToString();
+        GUI.color = goalRate >= 0.85f ? Color.green : Color.yellow;
+        GUI.Label(new Rect(20, 200, 500, 30), $"TRAINING PHASE: {phaseName}");
+        GUI.Label(new Rect(20, 230, 600, 30), $"VERDICT: Generando trayectorias estables transferibles a hardware.");
         GUI.color = Color.white;
 
-        // --- SECCIÓN 5: ESTADO DE SEQUÍA ---
-        bool inDrought = (MatchAnalytics.TotalEpisodes > 25) && (goalRate < 0.02f); 
-        string droughtStatus = inDrought ? "🧪 TIRO LIBRE ACTIVO: Forzando Penales Estrictos" : "✓ RITMO DE JUEGO DINÁMICO";
-        GUI.color = inDrought ? Color.red : Color.green;
-        GUI.Label(new Rect(20, 280, 860, 30), $"LAB STATUS: {droughtStatus}");
+        // --- SECCIÓN 5: INDICADOR DE EMERGENCIA POR SEQUÍA ---
+        bool falling = currentLvl == 0 && episodes > 10 && goalRate < 0.20f;
+        string systemStatus = falling ? "⚠️ ALERTA DE SEQUÍA: Forzando arranque infalible (Lvl 0)" : "✓ SISTEMA CONVERGIENDO EN PROGRESIÓN GEOMÉTRICA";
+        GUI.color = falling ? Color.red : Color.green;
+        GUI.Label(new Rect(20, 280, 860, 30), $"DOJO LAB STATUS: {systemStatus}");
         GUI.color = Color.white;
 
-        // --- SECCIÓN 6: REPORTES DE DOJO ---
+        // --- SECCIÓN 6: DETALLES DE ENTORNO ---
         GUI.Label(new Rect(20, 330, 860, 150),
-        $@"═══════════════════ REPORTE DE SALUD DEL MODELO ═══════════════════
-📊 Total de Impactos Cinéticos: {TotalCollisions} | Episodios Totales: {MatchAnalytics.TotalEpisodes}
-🚀 El imán de arrastre vectorial está activo: El agente es premiado continuamente mientras sostenga el avance del balón.
-🎯 El marcador del 10% se actualizará en tiempo real. Deja correr el entrenamiento.");
+        $@"═══════════════════ REPORTE DE GEOMETRÍA DE RED ═══════════════════
+📊 Impactos con Balón: {TotalCollisions} | Fricción y Masa de Rigidbody Activas.
+Alineación Dinámica Arco-Balón-Robot inyectando muestras de alto valor en gradientes de baja entropía.
+Los Empty GameObjects de Esquinas y Laterales se activan automáticamente en Nivel 3.");
 
         GUI.DragWindow();
     }
 
-    private string GetSamuraiRank(float goalRate, int episodes)
+    private string GetLevelName(int lvl)
     {
-        if (goalRate < 0.02f) return "STRIKER ASUSTADO (PATEANDO SIN SEGUIMIENTO)";
-        if (goalRate < 0.10f) return "DELANTERO EN RANGO (COMPORTAMIENTO DE EMPUJE)";
-        return "ELITE STRIKER (> 10% GOAL METRIC REALIZADO)";
+        switch(lvl)
+        {
+            case 0: return "Bootstrapping Infalible";
+            case 1: return "Corta Distancia Alineada";
+            case 2: return "Punto Penal Asistido";
+            case 3: return "Estrategia de Esquinas/Laterales";
+            case 4: return "Juego Abierto Descentralizado";
+            default: return "Desconocido";
+        }
     }
 
     private void Update()
@@ -125,7 +131,7 @@ Status:        🔥 ALINEANDO GRADIENTE AGRESIVO");
         if (episodes > 0 && episodes % logEveryEpisodes == 0 && episodes != lastLoggedEpisode)
         {
             lastLoggedEpisode = episodes;
-            Debug.Log($"[Dojo Coach] Episodes: {episodes} | Goal Rate Reciente: {MatchAnalytics.GetRecentGoalRate():P2} | Impactos: {TotalCollisions}");
+            Debug.Log($"[Dojo Curriculum] Ep: {episodes} | Goal Rate: {MatchAnalytics.GetRecentGoalRate():P2} | Lvl Actual: {agentInstance?.currentLevel}");
         }
     }
 

@@ -1161,6 +1161,54 @@ Transform:
   m_Father: {fileID: 1833035465}
   m_RootOrder: 1
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
+--- !u!1 &1249784358
+GameObject:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  serializedVersion: 6
+  m_Component:
+  - component: {fileID: 1249784359}
+  - component: {fileID: 1249784360}
+  m_Layer: 0
+  m_Name: LeftCornerPoint
+  m_TagString: Untagged
+  m_Icon: {fileID: 0}
+  m_NavMeshLayer: 0
+  m_StaticEditorFlags: 0
+  m_IsActive: 1
+--- !u!4 &1249784359
+Transform:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1249784358}
+  m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
+  m_LocalPosition: {x: -0.32, y: 0.047, z: 0.614}
+  m_LocalScale: {x: 1, y: 1, z: 1}
+  m_ConstrainProportionsScale: 0
+  m_Children: []
+  m_Father: {fileID: 0}
+  m_RootOrder: 13
+  m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
+--- !u!114 &1249784360
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1249784358}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: b67b21b8490db46939e72e33a885e91f, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: 
+  cancha: {fileID: 1603731554}
+  factorAncho: 0.03
+  usarAnchoManual: 0
+  anchoManualX: 12
 --- !u!1 &1252344969
 GameObject:
   m_ObjectHideFlags: 0
@@ -1300,7 +1348,7 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: 
   m_BrainParameters:
-    VectorObservationSize: 25
+    VectorObservationSize: 26
     NumStackedVectorObservations: 1
     m_ActionSpec:
       m_NumContinuousActions: 2
@@ -1340,15 +1388,18 @@ MonoBehaviour:
   enemyGoal: {fileID: 1262011278}
   ownGoal: {fileID: 215676873}
   enemy: {fileID: 1833035465}
+  currentLevel: 0
+  cornerLeftPoint: {fileID: 1249784359}
+  cornerRightPoint: {fileID: 1332587861}
+  lateralPoint: {fileID: 0}
+  penaltyPoint: {fileID: 1752527274}
+  droughtThreshold: 50
   goalReward: 1000
   ownGoalPenalty: -500
+  stepPenalty: -0.01
   ballAccelerationReward: 0.05
   forwardGoalBreadcrumb: 0.02
   accelerationThreshold: 0.5
-  droughtThreshold: 50
-  penaltyPoint: {fileID: 1752527274}
-  penaltyRobotPoint: {fileID: 1401493166}
-  penaltyMicroNoise: 0.2
   robotRb: {fileID: 1252344971}
   ballRb: {fileID: 980938597}
   robotRoot: {fileID: 1252344970}
@@ -1566,6 +1617,54 @@ MonoBehaviour:
     height: 550
   enableCoachLogs: 1
   logEveryEpisodes: 100
+--- !u!1 &1332587860
+GameObject:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  serializedVersion: 6
+  m_Component:
+  - component: {fileID: 1332587861}
+  - component: {fileID: 1332587862}
+  m_Layer: 0
+  m_Name: RigthCornerPoint
+  m_TagString: Untagged
+  m_Icon: {fileID: 0}
+  m_NavMeshLayer: 0
+  m_StaticEditorFlags: 0
+  m_IsActive: 1
+--- !u!4 &1332587861
+Transform:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1332587860}
+  m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
+  m_LocalPosition: {x: -0.094, y: 0.047, z: 0.615}
+  m_LocalScale: {x: 1, y: 1, z: 1}
+  m_ConstrainProportionsScale: 0
+  m_Children: []
+  m_Father: {fileID: 0}
+  m_RootOrder: 12
+  m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
+--- !u!114 &1332587862
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1332587860}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: b67b21b8490db46939e72e33a885e91f, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: 
+  cancha: {fileID: 1603731554}
+  factorAncho: 0.03
+  usarAnchoManual: 0
+  anchoManualX: 12
 --- !u!1 &1399220771
 GameObject:
   m_ObjectHideFlags: 0

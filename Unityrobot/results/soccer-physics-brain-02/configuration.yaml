@@ -65,7 +65,7 @@ checkpoint_settings:
   run_id: soccer-physics-brain-02
   initialize_from: null
   load_model: false
-  resume: true
+  resume: false
   force: false
   train_model: false
   inference: false
