@@ -3,6 +3,7 @@ using System.Collections.Generic;
 
 /// <summary>
 /// METRIC ENGINE - MATCH ANALYTICS (Edición Cátedra Progresiva)
+/// Entorno estático de consolidación de gradientes y métricas de rendimiento.
 /// </summary>
 public static class MatchAnalytics
 {
@@ -21,7 +22,6 @@ public static class MatchAnalytics
     private static Queue<float> recentSpeeds = new Queue<float>();
     private const int WINDOW_SIZE = 50;
 
-    
     public enum TrainingPhase 
     { 
         Phase1_Fundamentos, 

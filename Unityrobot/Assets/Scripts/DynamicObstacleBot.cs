@@ -1,27 +1,27 @@
 using UnityEngine;
 
 /// <summary>
-/// NPC Dinámico con Comportamiento Táctico y Límites de Cancha.
+/// NPC DINÁMICO TÁCTICO - DEFENSOR ANTAGONISTA AUTOMATIZADO
+/// Regula trayectorias complejas de obstrucción respetando los límites de mesa (Valla Virtual).
 /// </summary>
 public class DynamicObstacleBot : MonoBehaviour
 {
     [Header("References")]
     public SimulatedMotorDriver motorDriver;
     public Rigidbody rb;
-    [Tooltip("Arrastra aquí la Transform del balón")]
+    [Tooltip("Transform del balón")]
     public Transform ball;
 
     [Header("Cone Configuration (from SoccerAgent)")]
     public Transform coneAnchor;
     public Transform coneDirectionTarget;
 
-    // 🛡️ NUEVO: LÍMITES DE LA CANCHA
     [Header("Table Boundaries (Anti-Void)")]
-    [Tooltip("Arrastra el centro de la cancha/mesa")]
+    [Tooltip("Centro de la cancha/mesa")]
     public Transform tableCenter;
     public float tableWidth = 1.5f;
     public float tableLength = 1.5f;
-    [Tooltip("Margen de seguridad para que no se pegue al borde exacto")]
+    [Tooltip("Margen de seguridad para evitar roces permanentes con paredes")]
     public float safetyMargin = 0.1f; 
 
     [Header("Movement & Behavior")]
@@ -41,7 +41,6 @@ public class DynamicObstacleBot : MonoBehaviour
     [Range(0f, 1f)] public float steeringNoise = 0.15f;
     public float fallHeight = -0.2f;
 
-    // Privados
     private Vector3 initialPosition;
     private Quaternion initialRotation;
     private Vector3 currentTarget;
@@ -52,9 +51,6 @@ public class DynamicObstacleBot : MonoBehaviour
     public enum BehaviorMode { ConePatrol, WanderAway, BallChase }
     public BehaviorMode currentMode = BehaviorMode.ConePatrol;
 
-    // ==================================================
-    // UNITY LIFECYCLE
-    // ==================================================
     private void Start()
     {
         initialPosition = transform.position;
@@ -88,9 +84,6 @@ public class DynamicObstacleBot : MonoBehaviour
         MoveTowardTarget();
     }
 
-    // ==================================================
-    // STATE MACHINE & TARGET SELECTION
-    // ==================================================
     private void DecideNextBehavior()
     {
         float roll = Random.value;
@@ -123,13 +116,12 @@ public class DynamicObstacleBot : MonoBehaviour
                 break;
         }
 
-        // 🛡️ BLINDAJE TÁCTICO: Asegurar que el target NUNCA esté fuera de la cancha
         currentTarget = ClampToTable(currentTarget);
     }
 
     private void PickTargetInsideCone()
     {
-        if (coneAnchor == null || coneDirectionTarget == null) { PickFallbackTarget(); return; }
+        if (coneAnchor == null || coneDirectionTarget == null) { currentTarget = PickFallbackTarget(); return; }
         
         Vector3 center = coneAnchor.position;
         Vector3 forward = (coneDirectionTarget.position - center).normalized;
@@ -142,7 +134,7 @@ public class DynamicObstacleBot : MonoBehaviour
 
     private void PickTargetOutsideCone()
     {
-        if (coneAnchor == null || coneDirectionTarget == null) { PickFallbackTarget(); return; }
+        if (coneAnchor == null || coneDirectionTarget == null) { currentTarget = PickFallbackTarget(); return; }
         
         Vector3 center = coneAnchor.position;
         Vector3 forward = (coneDirectionTarget.position - center).normalized;
@@ -158,7 +150,6 @@ public class DynamicObstacleBot : MonoBehaviour
         return transform.position + new Vector3(Random.Range(-1f, 1f), 0f, Random.Range(-1f, 1f));
     }
 
-    // 🛡️ NUEVO MÉTODO: La "Valla Virtual"
     private Vector3 ClampToTable(Vector3 target)
     {
         if (tableCenter == null) return target;
@@ -172,16 +163,12 @@ public class DynamicObstacleBot : MonoBehaviour
         float minZ = center.z - halfL;
         float maxZ = center.z + halfL;
 
-        // Recorta las coordenadas X y Z para que no se pasen del rectángulo
         target.x = Mathf.Clamp(target.x, minX, maxX);
         target.z = Mathf.Clamp(target.z, minZ, maxZ);
         
         return target;
     }
 
-    // ==================================================
-    // WAITING & RESPAWN
-    // ==================================================
     private void UpdateWaiting()
     {
         waitTimer -= Time.fixedDeltaTime;
@@ -211,9 +198,6 @@ public class DynamicObstacleBot : MonoBehaviour
         motorDriver.SetMotorInputs(0f, 0f);
     }
 
-    // ==================================================
-    // MOVEMENT
-    // ==================================================
     private void MoveTowardTarget()
     {
         Vector3 toTarget = currentTarget - transform.position;
@@ -253,9 +237,6 @@ public class DynamicObstacleBot : MonoBehaviour
         motorDriver.SetMotorInputs(Mathf.Clamp(leftMotor, -1f, 1f), Mathf.Clamp(rightMotor, -1f, 1f));
     }
 
-    // ==================================================
-    // UTILS
-    // ==================================================
     private void CheckFall()
     {
         if (transform.position.y > fallHeight) return;
@@ -269,11 +250,8 @@ public class DynamicObstacleBot : MonoBehaviour
         motorDriver.SetMotorInputs(0f, 0f);
     }
 
-    // =====================================================
-    // DEBUG ACCESSORS
-    // =====================================================
-    public Vector3 CurrentTarget { get { return currentTarget; } }
-    public bool IsWaiting { get { return waiting; } }
+    public Vector3 CurrentTarget => currentTarget;
+    public bool IsWaiting => waiting;
 
     private void OnDrawGizmosSelected()
     {

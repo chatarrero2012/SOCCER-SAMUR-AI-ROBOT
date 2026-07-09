@@ -5,8 +5,8 @@ using Unity.MLAgents.Actuators;
 using System.Collections.Generic;
 
 /// <summary>
-/// AGENTE DE FÚTBOL - CURRICULUM GEOMETRIC ALIGNMENT (Edición Cátedra Progresiva V5)
-/// Diseñado para evitar el Sim2Real mediante bootstrapping posicional adaptativo.
+/// AGENTE DE FÚTBOL - CURRICULUM GEOMETRIC ALIGNMENT (Edición Cátedra Progresiva V5 con Matriz Dinámica)
+/// Diseñado para evitar el Sim2Real mediante bootstrapping posicional adaptativo y regulaciónVAR exógena.
 /// </summary>
 public class SoccerAgentCompetency : Agent, IGoalScorer
 {
@@ -25,7 +25,7 @@ public class SoccerAgentCompetency : Agent, IGoalScorer
     public Transform cornerLeftPoint;
     public Transform cornerRightPoint;
     public Transform lateralPoint;
-    public Transform penaltyPoint; // COPATIBLE CON EL LEVEL 2
+    public Transform penaltyPoint; // COMPATIBLE CON EL LEVEL 2
     public int droughtThreshold = 10;
 
     [Header("⚔ PURE REWARDS")]
@@ -49,10 +49,19 @@ public class SoccerAgentCompetency : Agent, IGoalScorer
     public float fallHeight = -0.5f;
     public float maxEpisodeSeconds = 15f; 
 
-    [Header("Personality Weights")]
+    [Header("Personality Weights (Static Seed base)")]
     public Vector4 personality = new Vector4(2.5f, 2.0f, 1.5f, 1.0f);
 
-    private Vector4 _p;
+    [Header("⚖️ REGULATORY COMPLIANCE SENSES (Mock Referee Input)")]
+    [Range(0f, 1f)] public float juegoActivo = 1.0f;       // 0.0 Pausa / 1.0 Activo
+    [Range(0f, 1.0f)] public float tarjetasAmarillas = 0.0f; // 0.0 Limpio / 0.5 Amonestado / 1.0 Expulsado
+    [Range(0f, 1f)] public float faltasAcumuladas = 0.0f;   // Ratio normalizado basado en MaxFouls
+
+    [Header("🛡️ ANTI-EXPLOIT CALIBRATION")]
+    public float suicidePenalty = -200f; // Bloqueo de loop autodestructivo
+    public float timeoutPenalty = -150f; // Bloqueo de bucle de estancamiento defensivo
+
+    private Vector4 _p; // Vector de escalado dinámico interno
     private float episodeTimer;
     private bool scoredGoalThisEpisode;
     private bool scoredOwnGoalThisEpisode;
@@ -69,10 +78,7 @@ public class SoccerAgentCompetency : Agent, IGoalScorer
     public int consecutiveGoals = 0;
 
     // CALIBRACIÓN ESTRICTA (Basada en tu cancha de 2.73m x 1.27m)
-    // El límite físico máximo en X es -2.4f (cerca a tu propio arco)
     private float[] maxDepths =   { -0.35f, -0.60f, -1.00f, -1.50f, -2.00f, -2.40f };
-
-    // El límite físico máximo en Z es 0.63f. Dejamos un margen de seguridad de 0.13m para no pegar a la pared.
     private float[] maxLaterals = {  0.00f,  0.15f,  0.25f,  0.35f,  0.45f,  0.50f };
 
     private List<float> lastObservationsList = new List<float>();
@@ -86,17 +92,47 @@ public class SoccerAgentCompetency : Agent, IGoalScorer
 
     public override void Initialize()
     {
-        NormalizePersonality();
+        UpdatePersonalityWeights();
     }
 
-    private void NormalizePersonality()
+    private void UpdatePersonalityWeights()
     {
-        _p = new Vector4(
-            Mathf.Clamp(personality.x, 1.0f, 5.0f), 
-            Mathf.Clamp(personality.y, 1.0f, 4.0f), 
-            Mathf.Clamp(personality.z, 0.5f, 3.0f), 
-            Mathf.Clamp(personality.w, 0.1f, 3.0f)
-        );
+        float cronometroEpisodio = Mathf.Clamp01(episodeTimer / maxEpisodeSeconds);
+
+        // ESTADO 3: LAW COMPLIANCE / STATUE MODE
+        if (juegoActivo < 0.5f)
+        {
+            _p.x = 0.0f; // Zero Attack Drive
+            _p.y = 0.0f; // Zero Kinetic Impulse
+            _p.z = 1.0f; // Mantenimiento nominal de alineación posicional estática
+            _p.w = 5.0f; // Máxima prudencia de bloqueo reactivo
+            return;
+        }
+
+        // ESTADO 2: DEFENSIVE SHADOW / ESGRIMISTA
+        // Activado si el árbitro reporta amonestaciones, altas faltas, o si se va ganando al cierre del tiempo límite
+        if (tarjetasAmarillas > 0.1f || faltasAcumuladas > 0.7f || (cronometroEpisodio > 0.8f && MatchAnalytics.GetRecentGoalRate() > 0.6f))
+        {
+            _p.x = 0.3f; // Mitigación radical de riesgos ofensivos descontrolados
+            _p.y = 1.5f; // Impulso cinético controlado
+            _p.z = 3.0f; // Maximizar anclajes estructurales y breadcrumbs de posicionamiento geométrico
+            _p.w = 4.5f; // Escalado severo de evasión de faltas (Prudence)
+        }
+        // ESTADO 1: HUNTER / ATTACKER
+        // Historial limpio, juego fluido y alta disponibilidad táctica
+        else
+        {
+            _p.x = 4.5f; // Máxima agresión ofensiva
+            _p.y = 4.0f; // Máxima aceleración y golpeo del esférico
+            _p.z = 1.2f; // Flexibilidad geométrica holgada para fintas creativas
+            _p.w = 0.5f; // Minimización preventiva del peso de penalizaciones por roce limpio
+        }
+
+        // Blindaje de estabilidad matemática para evitar explosión/desvanecimiento de gradientes en PPO
+        _p.x = Mathf.Clamp(_p.x, 0.0f, 5.0f);
+        _p.y = Mathf.Clamp(_p.y, 0.0f, 4.0f);
+        _p.z = Mathf.Clamp(_p.z, 0.5f, 3.0f);
+        _p.w = Mathf.Clamp(_p.w, 0.1f, 5.0f);
     }
 
     public override void OnEpisodeBegin()
@@ -109,9 +145,8 @@ public class SoccerAgentCompetency : Agent, IGoalScorer
         
         episodesSinceLastGoal++;
         
-        if (motorDriver != null) motorDriver.SetMotorInputs(0f, 0f);
+        if (motorDriver != null) motorDriver.Stop();
 
-        // Ajustar nivel del currículo basado en analíticas de ventana móvil
         EvaluateCurriculumProgress();
 
         personality = new Vector4(
@@ -121,7 +156,7 @@ public class SoccerAgentCompetency : Agent, IGoalScorer
             Random.Range(0.2f, 2.5f)  
         );
         
-        NormalizePersonality();
+        UpdatePersonalityWeights();
         SpawnCurriculumEpisode();
 
         if (ballRb != null) lastBallSpeed = ballRb.velocity.magnitude;
@@ -156,7 +191,6 @@ public class SoccerAgentCompetency : Agent, IGoalScorer
 
     private void SpawnCurriculumEpisode()
     {
-        // 1. DESACTIVACIÓN CINEMÁTICA MOMENTÁNEA
         if (ballRb != null) 
         { 
             ballRb.isKinematic = true;
@@ -173,7 +207,6 @@ public class SoccerAgentCompetency : Agent, IGoalScorer
         Vector3 targetBallPos = ballSpawnCenter;
         float robotOffsetDistance = 0.35f; 
 
-        // MICRO-LEVITACIÓN DE SEGURIDAD
         float safeHeightBall = ballSpawnCenter.y + 0.08f;
         float safeHeightRobot = robotSpawnCenter.y + 0.08f;
 
@@ -261,7 +294,6 @@ public class SoccerAgentCompetency : Agent, IGoalScorer
                 break;
         }
 
-        // RECONEXIÓN DINÁMICA DE FÍSICAS
         if (ballRb != null) ballRb.isKinematic = false;
         if (robotRb != null) robotRb.isKinematic = false;
     }
@@ -314,10 +346,38 @@ public class SoccerAgentCompetency : Agent, IGoalScorer
         AddObs(sensor, _p.z);
         AddObs(sensor, _p.w);
         AddObs(sensor, motorDriver != null ? motorDriver.currentBatteryCharge : 1.0f);
+
+        // ⚖️ INYECCIÓN DE SENTIDOS REGULATORIOS VECTORIALES (4 Normalized Floats - Critical for PPO Fusion)
+        AddObs(sensor, juegoActivo);
+        AddObs(sensor, tarjetasAmarillas);
+        AddObs(sensor, faltasAcumuladas);
+        AddObs(sensor, Mathf.Clamp01(episodeTimer / maxEpisodeSeconds)); // cronometroEpisodio
     }
 
     public override void OnActionReceived(ActionBuffers actions)
     {
+        // 🛑 ESTADO 3: LAW COMPLIANCE / STATUE MODE OVERRIDE IMMEDIATE
+        if (juegoActivo < 0.5f)
+        {
+            if (motorDriver != null) motorDriver.Stop(); // Forzar frenado de actuadores directos
+
+            // Escalado exponencial si existe inercia residual o deslizamiento no permitido durante pausa
+            if (robotRb != null && robotRb.velocity.magnitude > 0.05f)
+            {
+                float illegalMovementPenalty = -5.0f; // Escalado drástico por frame
+                AddReward(illegalMovementPenalty);
+                MatchAnalytics.AddReward(illegalMovementPenalty);
+            }
+
+            CheckFallConditions();
+            episodeTimer += Time.fixedDeltaTime;
+            if (episodeTimer >= maxEpisodeSeconds) FinishEpisode();
+            return;
+        }
+
+        // ⚡ ENVOLUCIÓN OPERATIVA EN TIEMPO REAL (Hunter o Esgrimista)
+        UpdatePersonalityWeights();
+
         float leftMotor = 0f;
         float rightMotor = 0f;
 
@@ -403,6 +463,29 @@ public class SoccerAgentCompetency : Agent, IGoalScorer
             CompetencyDashboard.RecordCollision();
             AddReward(2.0f * _p.y);
             MatchAnalytics.AddReward(2.0f * _p.y);
+            return;
+        }
+
+        // ⚔️ PENALIZACIÓN DE FRICCIÓN CINÉTICA (Anti-Gallineta)
+        // Code of Silence: El árbitro MockReferee observa externamente, el agente asume el coste por física nativa.
+        if (collision.transform == enemy || collision.transform == enemyGoal || collision.transform == ownGoal)
+        {
+            float relativeVel = collision.relativeVelocity.magnitude;
+            
+            if (relativeVel > 0.3f) // Umbral de impacto violento
+            {
+                // Penalización dinámica atada a la velocidad relativa de impacto y al factor de prudencia (_p.w)
+                float kineticImpactPenalty = -1.5f * relativeVel * _p.w;
+
+                // Si el agente está amonestado (tarjetasAmarillas >= 0.5), se triplica el castigo localmente para forzar juego ultra-limpio
+                if (tarjetasAmarillas > 0.4f)
+                {
+                    kineticImpactPenalty *= 3.0f;
+                }
+
+                AddReward(kineticImpactPenalty);
+                MatchAnalytics.AddReward(kineticImpactPenalty);
+            }
         }
     }
 
@@ -438,11 +521,13 @@ public class SoccerAgentCompetency : Agent, IGoalScorer
     private void FinishEpisode()
     {
         bool reachedGoal = scoredGoalThisEpisode;
+
+        // Regulación Drástica de Tiempos Límite (Anti-Exploit Stall)
         if (!diedThisEpisode && !scoredGoalThisEpisode && !scoredOwnGoalThisEpisode)
         {
             CompetencyDashboard.RecordTimeout();
-            AddReward(-30f); 
-            MatchAnalytics.AddReward(-30f);
+            AddReward(timeoutPenalty); 
+            MatchAnalytics.AddReward(timeoutPenalty);
         }
 
         // CONTROL DE CURRICULUM CENTRALIZADO AL FINAL DEL INTENTO
@@ -450,12 +535,11 @@ public class SoccerAgentCompetency : Agent, IGoalScorer
         {
             if (consecutiveGoals > 0) 
             {
-                consecutiveGoals = 0; // Rompe la racha si el intento culmina sin éxito
+                consecutiveGoals = 0; 
                 Debug.Log("<color=yellow>Racha de goles reiniciada por fallo o tiempo límite.</color>");
             }
             else
             {
-                // Si la racha ya era cero y sigue fallando, reduce un escalón de lección para recuperar confianza
                 currentLesson = Mathf.Max(0, currentLesson - 1);
                 Debug.Log($"<color=red>Dificultad reducida a Lección {currentLesson}</color>");
             }
@@ -519,7 +603,11 @@ public class SoccerAgentCompetency : Agent, IGoalScorer
         {
             diedThisEpisode = true;
             CompetencyDashboard.RecordFall();
-            AddReward(-30f); MatchAnalytics.AddReward(-30f);
+            
+            // Sobreescritura drástica contra el exploit de suicidio forzado
+            AddReward(suicidePenalty); 
+            MatchAnalytics.AddReward(suicidePenalty);
+            
             FinishEpisode();
             return;
         }

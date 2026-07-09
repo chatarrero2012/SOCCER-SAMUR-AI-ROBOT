@@ -3,6 +3,7 @@ using System.Collections.Generic;
 
 /// <summary>
 /// COMPETENCY-BASED DASHBOARD (Fila Kinetic Tracker V5 - Curriculum Edition)
+/// Interfaz gráfica HUD de monitoreo en tiempo de ejecución para laboratorios de RL.
 /// </summary>
 public class CompetencyDashboard : MonoBehaviour
 {
@@ -52,7 +53,9 @@ public class CompetencyDashboard : MonoBehaviour
         
         float totalReward = MatchAnalytics.TotalReward;
         float rewardGoals = MatchAnalytics.RewardFromGoals;
-        float penalizacionesFijas = (ownGoals * -700f) + (TotalTimeouts * -30f) + (TotalFalls * -30f);
+
+        // Actualización matemática adaptada a los nuevos esquemas de penalización drástica
+        float penalizacionesFijas = (ownGoals * -700f) + (TotalTimeouts * -150f) + (TotalFalls * -200f);
         float shapingReward = totalReward - rewardGoals - penalizacionesFijas;
 
         int currentLvl = agentInstance != null ? agentInstance.currentLevel : 0;
@@ -105,7 +108,7 @@ Status:         ⚙ ADAPTANDO MATRIZ DE SPAWN");
         GUI.Label(new Rect(20, 330, 860, 150),
         $@"═══════════════════ REPORTE DE GEOMETRÍA DE RED ═══════════════════
 📊 Impactos con Balón: {TotalCollisions} | Fricción y Masa de Rigidbody Activas.
-Alineación Dinámica Arco-Balón-Robot inyectando muestras de alto valor en gradientes de baja entropía.
+Matriz adaptativa regulando pesos tácticos en base a inyecciones complejas exógenas del referí.
 Los Empty GameObjects de Esquinas y Laterales se activan automáticamente en Nivel 3.");
 
         GUI.DragWindow();

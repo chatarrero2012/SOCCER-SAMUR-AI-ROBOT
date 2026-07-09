@@ -1,5 +1,9 @@
 using UnityEngine;
 
+/// <summary>
+/// ACTUATOR ENGINE - SIM2REAL DIFFERENTIAL DRIVE MOTOR
+/// Incorpora centro de masa descentrado (Smartphone weight gap), bandas muertas y asimetría de torque real.
+/// </summary>
 public class SimulatedMotorDriver : MonoBehaviour
 {
     [Header("References")]
@@ -36,7 +40,6 @@ public class SimulatedMotorDriver : MonoBehaviour
 
     private void Start()
     {
-        // Ajustar el Centro de Masa para simular el peso elevado del smartphone
         if (rb != null && centerOfMassOverride != null)
         {
             rb.centerOfMass = centerOfMassOverride.localPosition;
@@ -69,11 +72,9 @@ public class SimulatedMotorDriver : MonoBehaviour
     {
         float batteryFactor = Mathf.Clamp01(currentBatteryCharge);
 
-        // Simular Zona Muerta (Deadband)
         float effLeftMotor = Mathf.Abs(currentLeftMotor) < motorDeadband ? 0f : currentLeftMotor;
         float effRightMotor = Mathf.Abs(currentRightMotor) < motorDeadband ? 0f : currentRightMotor;
 
-        // Aplicar fuerza y asimetría
         float leftForceMagnitude = effLeftMotor * maxWheelForce * batteryFactor;
         float rightForceMagnitude = effRightMotor * maxWheelForce * batteryFactor * rightMotorBias;
 
