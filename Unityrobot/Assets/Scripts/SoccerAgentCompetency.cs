@@ -466,26 +466,40 @@ public class SoccerAgentCompetency : Agent, IGoalScorer
             return;
         }
 
-        // ⚔️ PENALIZACIÓN DE FRICCIÓN CINÉTICA (Anti-Gallineta)
-        // Code of Silence: El árbitro MockReferee observa externamente, el agente asume el coste por física nativa.
+        // 🛡️ REFUERZO DE HARDWARE (Proteger smartphone de impactos directos)
         if (collision.transform == enemy || collision.transform == enemyGoal || collision.transform == ownGoal)
         {
             float relativeVel = collision.relativeVelocity.magnitude;
             
-            if (relativeVel > 0.3f) // Umbral de impacto violento
+            // Si es el NPC enemigo, el castigo es severo desde el contacto cero
+            float basePenalty = (collision.transform == enemy) ? -8.0f : -1.5f;
+            
+            // Escalamos con la velocidad, pero manteniendo un piso firme independiente de _p.w
+            // Multiplicamos por (1.0f + _p.w) para que la prudencia aumente el castigo, pero nunca baje de la base
+            float kineticImpactPenalty = basePenalty * (1.0f + relativeVel) * (1.0f + _p.w);
+
+            // Si el agente está amonestado, se triplica para forzar juego ultra-limpio
+            if (tarjetasAmarillas > 0.4f)
             {
-                // Penalización dinámica atada a la velocidad relativa de impacto y al factor de prudencia (_p.w)
-                float kineticImpactPenalty = -1.5f * relativeVel * _p.w;
-
-                // Si el agente está amonestado (tarjetasAmarillas >= 0.5), se triplica el castigo localmente para forzar juego ultra-limpio
-                if (tarjetasAmarillas > 0.4f)
-                {
-                    kineticImpactPenalty *= 3.0f;
-                }
-
-                AddReward(kineticImpactPenalty);
-                MatchAnalytics.AddReward(kineticImpactPenalty);
+                kineticImpactPenalty *= 3.0f;
             }
+
+            AddReward(kineticImpactPenalty);
+            MatchAnalytics.AddReward(kineticImpactPenalty);
+        }
+    }
+
+    // 🔥 BLINDAJE CONTRA EMPUJES Y FRICCIÓN CONTINUA (Anti-Grinding)
+    private void OnCollisionStay(Collision collision)
+    {
+        if (collision.transform == enemy)
+        {
+            // El contacto continuo sobrecalienta motores, drena batería y mete ruido severo a los sensores
+            // Penalización por frame activo de contacto
+            float continuousContactPenalty = -0.5f * (1.0f + _p.w);
+            
+            AddReward(continuousContactPenalty);
+            MatchAnalytics.AddReward(continuousContactPenalty);
         }
     }
 
