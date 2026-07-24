@@ -1351,7 +1351,7 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: 
   m_BrainParameters:
-    VectorObservationSize: 30
+    VectorObservationSize: 35
     NumStackedVectorObservations: 1
     m_ActionSpec:
       m_NumContinuousActions: 2
@@ -2044,8 +2044,8 @@ MonoBehaviour:
   minWaitTime: 0.5
   maxWaitTime: 2
   stateChangeInterval: 4
-  chaseBallChance: 0.25
-  wanderAwayChance: 0.35
+  chaseBallChance: 0.83
+  wanderAwayChance: 0.47
   steeringNoise: 0.15
   fallHeight: -0.2
   currentMode: 0

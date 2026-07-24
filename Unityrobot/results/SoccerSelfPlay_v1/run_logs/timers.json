@@ -1,0 +1,54 @@
+{
+    "name": "root",
+    "metadata": {
+        "timer_format_version": "0.1.0",
+        "start_time_seconds": "1784815302",
+        "python_version": "3.8.2 (default, Dec 21 2020, 15:06:04) \n[Clang 12.0.0 (clang-1200.0.32.29)]",
+        "command_line_arguments": "/Users/admin/Documents/unity/robot/SOCCER-SAMUR-AI-ROBOT/Unityrobot/clean_env/lib/python3.8/site-packages/mlagents/trainers/learn.py config/ppo.yaml --run-id SoccerSelfPlay_v1 --resume",
+        "mlagents_version": "0.28.0",
+        "mlagents_envs_version": "0.28.0",
+        "communication_protocol_version": "1.5.0",
+        "pytorch_version": "1.8.1",
+        "numpy_version": "1.21.6",
+        "end_time_seconds": "1784815331"
+    },
+    "total": 29.089593827,
+    "count": 1,
+    "self": 0.07510896799999855,
+    "children": {
+        "run_training.setup": {
+            "total": 0.07650645000000011,
+            "count": 1,
+            "self": 0.07650645000000011
+        },
+        "TrainerController.start_learning": {
+            "total": 28.937978409000003,
+            "count": 1,
+            "self": 0.0004726550000029306,
+            "children": {
+                "TrainerController._reset_env": {
+                    "total": 28.409203589,
+                    "count": 1,
+                    "self": 28.409203589
+                },
+                "trainer_threads": {
+                    "total": 3.2009999983984017e-06,
+                    "count": 1,
+                    "self": 3.2009999983984017e-06
+                },
+                "TrainerController._save_models": {
+                    "total": 0.5282989640000011,
+                    "count": 1,
+                    "self": 0.0024716770000026145,
+                    "children": {
+                        "RLTrainer._checkpoint": {
+                            "total": 0.5258272869999985,
+                            "count": 1,
+                            "self": 0.5258272869999985
+                        }
+                    }
+                }
+            }
+        }
+    }
+}

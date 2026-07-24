@@ -315,6 +315,7 @@ public class SoccerAgentCompetency : Agent, IGoalScorer
         AddDetectionObservation(sensor, ball);
         AddDetectionObservation(sensor, enemyGoal);
         AddDetectionObservation(sensor, ownGoal);
+        AddDetectionObservation(sensor, enemy);
         
         if (robotRb != null)
         {
@@ -465,6 +466,21 @@ public class SoccerAgentCompetency : Agent, IGoalScorer
             MatchAnalytics.AddReward(2.0f * _p.y);
             return;
         }
+        if (collision.transform == enemy)
+        {
+            float relativeVel = collision.relativeVelocity.magnitude;
+            
+            // Elevamos el castigo base de -8.0f a -25.0f para que el choque sea inaceptable
+            float basePenalty = -25.0f; 
+            
+            // Si impacta rápido, el castigo escala exponencialmente con su peso de prudencia (_p.w)
+            float kineticImpactPenalty = basePenalty * (1.0f + relativeVel) * (1.0f + _p.w);
+
+            if (tarjetasAmarillas > 0.4f) kineticImpactPenalty *= 3.0f; // Reincidencia
+
+            AddReward(kineticImpactPenalty);
+            MatchAnalytics.AddReward(kineticImpactPenalty);
+        }
 
         // 🛡️ REFUERZO DE HARDWARE (Proteger smartphone de impactos directos)
         if (collision.transform == enemy || collision.transform == enemyGoal || collision.transform == ownGoal)
@@ -494,9 +510,9 @@ public class SoccerAgentCompetency : Agent, IGoalScorer
     {
         if (collision.transform == enemy)
         {
-            // El contacto continuo sobrecalienta motores, drena batería y mete ruido severo a los sensores
-            // Penalización por frame activo de contacto
-            float continuousContactPenalty = -0.5f * (1.0f + _p.w);
+            // Subimos de -0.5f a -3.0f por frame activo de contacto. 
+            // Esto obligará al robot a retroceder de inmediato si llega a rozarlo.
+            float continuousContactPenalty = -3.0f * (1.0f + _p.w);
             
             AddReward(continuousContactPenalty);
             MatchAnalytics.AddReward(continuousContactPenalty);
